@@ -1,0 +1,23 @@
+{
+  "name": "deeper-wallet-mcp",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.17.3",
+    "@solana/spl-token": "^0.4.13",
+    "@solana/web3.js": "^1.98.4",
+    "await-to-js": "^3.0.0",
+    "axios": "^1.11.0",
+    "node-cache": "^5.1.2",
+    "sqlite3": "^5.1.7",
+    "zod": "^3.25.76"
+  }
+}
