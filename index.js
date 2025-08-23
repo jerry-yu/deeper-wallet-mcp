@@ -171,7 +171,7 @@ async function main2() {
     //     return;
     // }
     // console.warn(`ERC20 Meta: ${ JSON.stringify(erc20Meta)}`);
-    const [err4, transferResult] = await to(transferToken('', '0x90dF5A3EDE13Ee1D090573460e13B0BFD8aa9708', '0x62cbf86a4fa9a5aaa25bd3601d0eb89e26f6fb66', '10000000000000','ETHEREUM-SEPOLIA'));
+    const [err4, transferResult] = await to(transferToken('', '7ZS48GH3ndFJyPBkE7KpCKDBq2jDCrhvQyi2ZnPtDU5i', '5kSfsEoPXv4cgKx4Ct2irz9xF6mWcTo1NLFfKfKs11fu', '100000','SOLANA-DEVNET'));
     if (err4) {
         console.error('Error transferring token:', err4);
         return;

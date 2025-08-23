@@ -135,7 +135,7 @@ exports.getBalance = async (network, address) => {
 
   const [error, response] = await to(axiosGet(`get_btc_balance/${address}/${network}`));
   if (error) {
-    logger.error(`Failed to get balance: ${error}`);
+    console.error(`Failed to get balance: ${error}`);
     return null;
   }
   return response.data;
@@ -170,7 +170,7 @@ exports.getPrice = async tokenName => {
 
   const [error, response] = await to(axiosGet(`get_token_price/${tokenName}`));
   if (error) {
-    logger.error(`Failed to get ${tokenName} price: ${error}`);
+    console.error(`Failed to get ${tokenName} price: ${error}`);
     return null;
   }
 
@@ -185,7 +185,7 @@ exports.getExchangeRate = async currency => {
 
   const [error, response] = await to(axiosGet(`get_currency_rate/${currency}`));
   if (error) {
-    logger.error(`Failed to exchange rate: ${error}`);
+    console.error(`Failed to exchange rate: ${error}`);
     return null;
   }
 
@@ -204,7 +204,7 @@ exports.markBackupDone = async () => {
 
   const [err] = await to(writeFile(BACKUP_FLAG_FILE_PATH, ''));
   if (err) {
-    logger.error(`Failed to create file ${BACKUP_FLAG_FILE_PATH}: ${err}`);
+    console.error(`Failed to create file ${BACKUP_FLAG_FILE_PATH}: ${err}`);
     return false;
   }
 
@@ -224,19 +224,19 @@ exports.createHdStore = async (password, passwordHint, name) => {
   const jsonPayload = JSON.stringify(payload);
   // const keystoreParams = getKeystoreParams();
   // if (!keystoreParams) {
-  //   logger.error(`Failed to create HD store: keystore params missing`);
+  //   console.error(`Failed to create HD store: keystore params missing`);
   //   return null;
   // }
   const escapedPayload = jsonPayload.replace(/"/g, '\\"');
   const [error1, stdout1] = await commonUtil.exec(`${DEEPER_WALLET_BIN_PATH} '${jsonPayload}' `);
   if (error1) {
-    logger.error(`Failed to create HD store`);
+    console.error(`Failed to create HD store`);
     return null;
   }
 
   const [error2, obj] = await to(commonUtil.jsonParse(stdout1));
   if (error2 || !obj?.hash) {
-    logger.error(`Invalid hd_store_create output: ${stdout1}`);
+    console.error(`Invalid hd_store_create output: ${stdout1}`);
     return null;
   }
 
@@ -261,19 +261,19 @@ exports.importHdStore = async (mnemonic, password, passwordHint, name, overwrite
   const jsonPayload = JSON.stringify(payload);
   // const keystoreParams = getKeystoreParams();
   // if (!keystoreParams) {
-  //   logger.error(`Failed to import HD store: keystore params missing`);
+  //   console.error(`Failed to import HD store: keystore params missing`);
   //   return null;
   // }
   const escapedPayload = jsonPayload.replace(/"/g, '\\"');
   const [error1, stdout1] = await commonUtil.exec(`${DEEPER_WALLET_BIN_PATH} '${jsonPayload}' `);
   if (error1) {
-    logger.error(`Failed to import HD store`);
+    console.error(`Failed to import HD store`);
     return null;
   }
 
   const [error2, obj1] = await to(commonUtil.jsonParse(stdout1));
   if (error2 || !obj1?.hash) {
-    logger.error(`Invalid hd_store_import output: ${stdout1}`);
+    console.error(`Invalid hd_store_import output: ${stdout1}`);
     return null;
   }
   await setNameSource(name, 1, obj1.hash);
@@ -283,25 +283,25 @@ exports.importHdStore = async (mnemonic, password, passwordHint, name, overwrite
 // exports.importKeyStore = async (content, name) => {
 //   const key = _0xfwgq2a.getKeystoreKey();
 //   if (!key) {
-//     logger.error(`Failed to import keystore: key missing`);
+//     console.error(`Failed to import keystore: key missing`);
 //     return false;
 //   }
 
 //   const [err, obj] = await to(commonUtil.jsonParse(content));
 //   if (err || !obj?.keyHash) {
-//     logger.error(`Failed to parse keystore`);
+//     console.error(`Failed to parse keystore`);
 //     return false;
 //   }
 
 //   const [err2, encrypted] = await to(cryptoUtil.encrypt(key.a, key.b, key.c, content));
 //   if (err2) {
-//     logger.error(`Failed to encrypt keystore: ${err2}`);
+//     console.error(`Failed to encrypt keystore: ${err2}`);
 //     return false;
 //   }
 
 //   const [writeErr] = await to(writeFile(KEYSTORE_FILE, Buffer.from(encrypted, 'hex')));
 //   if (writeErr) {
-//     logger.error(`Failed to write keystore file ${KEYSTORE_FILE}: ${writeErr}`);
+//     console.error(`Failed to write keystore file ${KEYSTORE_FILE}: ${writeErr}`);
 //     return false;
 //   }
 
@@ -319,19 +319,19 @@ exports.exportMnemonic = async password => {
   const jsonPayload = JSON.stringify(payload);
   // const keystoreParams = getKeystoreParams();
   // if (!keystoreParams) {
-  //   logger.error(`Failed to export mnemonic: keystore params missing`);
+  //   console.error(`Failed to export mnemonic: keystore params missing`);
   //   return null;
   // }
   const escapedPayload = jsonPayload.replace(/"/g, '\\"');
   const [error1, stdout] = await commonUtil.exec(`${DEEPER_WALLET_BIN_PATH} '${jsonPayload}' `);
   if (error1) {
-    logger.error(`Failed to export mnemonic`);
+    console.error(`Failed to export mnemonic`);
     return null;
   }
 
   const [error2, obj] = await to(commonUtil.jsonParse(stdout));
   if (error2) {
-    logger.error(`Invalid exportMnemonic output: ${stdout}`);
+    console.error(`Invalid exportMnemonic output: ${stdout}`);
     return null;
   }
 
@@ -348,13 +348,13 @@ exports.exportKeystore = async () => {
   const jsonPayload = JSON.stringify(payload);
   // const keystoreParams = getKeystoreParams();
   // if (!keystoreParams) {
-  //   logger.error(`Failed to export mnemonic: keystore params missing`);
+  //   console.error(`Failed to export mnemonic: keystore params missing`);
   //   return null;
   // }
   const escapedPayload = jsonPayload.replace(/"/g, '\\"');
   const [error1, stdout] = await commonUtil.exec(`${DEEPER_WALLET_BIN_PATH} '${jsonPayload}' `);
   if (error1) {
-    logger.error(`Failed to export mnemonic`);
+    console.error(`Failed to export mnemonic`);
     return null;
   }
 
@@ -364,7 +364,7 @@ exports.exportKeystore = async () => {
 exports.renameAccount = async (index, newName) => {
   const success = await db.renameAccount(index, newName);
   if (!success) {
-    logger.error(`Failed to rename account`);
+    console.error(`Failed to rename account`);
   }
   return success;
 };
@@ -385,19 +385,19 @@ exports.exportPrivateKey = async (password, network, address) => {
   const jsonPayload = JSON.stringify(payload);
   // const keystoreParams = getKeystoreParams();
   // if (!keystoreParams) {
-  //   logger.error(`Failed to export private key: keystore params missing`);
+  //   console.error(`Failed to export private key: keystore params missing`);
   //   return null;
   // }
   const escapedPayload = jsonPayload.replace(/"/g, '\\"');
   const [error1, stdout] = await commonUtil.exec(`${DEEPER_WALLET_BIN_PATH} '${jsonPayload}' `);
   if (error1) {
-    logger.error(`Failed to export private key`);
+    console.error(`Failed to export private key`);
     return null;
   }
 
   const [error2, obj] = await to(commonUtil.jsonParse(stdout));
   if (error2) {
-    logger.error(`Invalid export_private_key output: ${stdout}`);
+    console.error(`Invalid export_private_key output: ${stdout}`);
     return null;
   }
 
@@ -439,19 +439,19 @@ async function derive_address(password, network, idx) {
   const escapedString = JSON.stringify(payload).replace(/"/g, '\\"');
   // const keystoreParams = getKeystoreParams();
   // if (!keystoreParams) {
-  //   logger.error(`Failed to add address: keystore params missing`);
+  //   console.error(`Failed to add address: keystore params missing`);
   //   return null;
   // }
 
   const [error1, stdout] = await commonUtil.exec(`${DEEPER_WALLET_BIN_PATH}  "${escapedString}" `);
   if (error1) {
-    logger.error(`Failed to add address`);
+    console.error(`Failed to add address`);
     return null;
   }
 
   const [error2, obj] = await to(commonUtil.jsonParse(stdout));
   if (error2 || !obj?.accounts) {
-    logger.error(`Invalid keystore_common_derive output: ${stdout}`);
+    console.error(`Invalid keystore_common_derive output: ${stdout}`);
     return null;
   }
 
@@ -462,7 +462,7 @@ async function derive_address(password, network, idx) {
 exports.renameWallet = async name => {
   const success = await db.renameWallet(name);
   if (!success) {
-    logger.error(`Failed to rename wallet`);
+    console.error(`Failed to rename wallet`);
     return false;
   }
   return true;
@@ -483,13 +483,13 @@ exports.addAccount = async (password, chains) => {
   });
   const success = await db.insertDeriveAddress(arr);
   if (!success) {
-    logger.error(`Failed to insert address of chains`);
+    console.error(`Failed to insert address of chains`);
     return false;
   }
 
   const inserted = await db.insertAccountName(idx, 'Account' + (idx + 1).toString().padStart(2, '0'));
   if (!inserted) {
-    logger.error(`Failed to insert account name`);
+    console.error(`Failed to insert account name`);
     return false;
   }
   return true;
@@ -505,7 +505,7 @@ exports.getTransactionHistory = async (network, address) => {
 
   const [error, txHistoryResponse] = await to(axiosGet(apiEndpoint));
   if (error) {
-    logger.error(`Failed to get transaction history: ${error}`);
+    console.error(`Failed to get transaction history: ${error}`);
     return null;
   }
   return txHistoryResponse.data;
@@ -515,7 +515,7 @@ exports.getTokenTransactionHistory = async (network, address, contractAddress) =
   const apiEndpoint = `get_token_tx_history/${network}/${address}/${contractAddress}`;
   const [error, txHistoryResponse] = await to(axiosGet(apiEndpoint));
   if (error) {
-    logger.error(`Failed to get token transaction history: ${error}`);
+    console.error(`Failed to get token transaction history: ${error}`);
     return null;
   }
   return txHistoryResponse.data;
@@ -526,7 +526,7 @@ exports.getTransactionDetail = async txHash => {
   const apiEndpoint = `get_tx_detail/${txHash}`;
   const [error, txDetailResponse] = await to(axiosGet(apiEndpoint));
   if (error) {
-    logger.error(`Failed to get transaction detail: ${error}`);
+    console.error(`Failed to get transaction detail: ${error}`);
     return null;
   }
   return txDetailResponse.data;
@@ -539,7 +539,7 @@ exports.getGasPrice = async network => {
   } else if (network.startsWith('BITCOIN')) {
     const btcFee = await getBtcFee(network);
     if (!btcFee?.halfHourFee) {
-      logger.error(`Failed to get btc fee ${error}`);
+      console.error(`Failed to get btc fee ${error}`);
       return null;
     }
     return { gas_price: btcFee.halfHourFee.toString() };
@@ -577,7 +577,7 @@ exports.getContractMeta = async (network, contractAddress) => {
   }
   const [err, meta] = await to(axiosGet(`${apiName}/${network}/${contractAddress}`));
   if (err) {
-    logger.error(`Failed to get ERC20 meta: ${err}`);
+    console.error(`Failed to get ERC20 meta: ${err}`);
     return null;
   }
   return meta.data;
@@ -601,7 +601,7 @@ async function transferBtc(password, fromAddress, toAddress, amount, network) {
   const sn = ""; // utils.getUserId();
   const btcFee = await getBtcFee(network);
   if (!btcFee?.halfHourFee) {
-    logger.error(`Failed to get btc fee ${error}`);
+    console.error(`Failed to get btc fee ${error}`);
     return null;
   }
 
@@ -609,7 +609,7 @@ async function transferBtc(password, fromAddress, toAddress, amount, network) {
     axiosGet(`get_btc_utxo/${fromAddress}/${btcFee.halfHourFee}/${amount}/${network}`)
   );
   if (err1) {
-    logger.error(`Failed to get_btc_utxo: ${err1}`);
+    console.error(`Failed to get_btc_utxo: ${err1}`);
     return null;
   }
 
@@ -661,20 +661,20 @@ async function transferBtc(password, fromAddress, toAddress, amount, network) {
   const jsonPayload = JSON.stringify(payload);
   // const keystoreParams = getKeystoreParams();
   // if (!keystoreParams) {
-  //   logger.error(`Failed to transfer ETH ERC20: keystore params missing`);
+  //   console.error(`Failed to transfer ETH ERC20: keystore params missing`);
   //   return null;
   // }
   const escapedPayload = jsonPayload.replace(/"/g, '\\"');
   const [err2, stdout] = await commonUtil.exec(`${DEEPER_WALLET_BIN_PATH} '${jsonPayload}' `);
   if (err2) {
-    logger.error(`Failed to sign_tx transfer btc: ${err2}`);
+    console.error(`Failed to sign_tx transfer btc: ${err2}`);
     return null;
   }
 
   // Parse the response from the hardware wallet
   const [err3, obj] = await to(commonUtil.jsonParse(stdout));
   if (err3 || !obj?.signature) {
-    logger.error(`Invalid sign_tx output: ${stdout}`);
+    console.error(`Invalid sign_tx output: ${stdout}`);
     return null;
   }
   const signedTransaction = `${obj.signature.replace(/^"|"$/g, '')}`;
@@ -682,12 +682,12 @@ async function transferBtc(password, fromAddress, toAddress, amount, network) {
     axiosPost(`send_btc_transaction_raw/${network}/${signedTransaction}/${sn}/${ts}`, {})
   );
   if (err4) {
-    logger.error(`Failed to send_btc_tx_raw: ${err4}`);
+    console.error(`Failed to send_btc_tx_raw: ${err4}`);
     return null;
   }
   const txHash = proxyResponse.data?.transaction_hash;
   if (!txHash) {
-    logger.error(`Invalid proxy response: ${JSON.stringify(proxyResponse.data)}`);
+    console.error(`Invalid proxy response: ${JSON.stringify(proxyResponse.data)}`);
     return null;
   }
   return proxyResponse.data;
@@ -709,7 +709,7 @@ async function getBtcFee(network) {
   network = getNetwork(network);
   const [err, response] = await to(axiosGet(`get_btc_fee/${network}`));
   if (err) {
-    logger.error(`Failed to get_btc_fee: ${err}`);
+    console.error(`Failed to get_btc_fee: ${err}`);
     return null;
   }
   return response.data;
@@ -738,20 +738,22 @@ async function transferSol(password, fromAddress, toAddress, amount, network) {
   const jsonPayload = JSON.stringify(payload);
   // const keystoreParams = getKeystoreParams();
   // if (!keystoreParams) {
-  //   logger.error(`Failed to transfer SOL: keystore params missing`);
+  //   console.error(`Failed to transfer SOL: keystore params missing`);
   //   return null;
   // }
+
   const escapedPayload = jsonPayload.replace(/"/g, '\\"');
-  const [err2, stdout] = await commonUtil.exec(`${DEEPER_WALLET_BIN_PATH}  '${escapedPayload}' `);
+    console.error(`------ ${escapedPayload}`);
+  const [err2, stdout] = await commonUtil.exec(`${DEEPER_WALLET_BIN_PATH}  "${escapedPayload}" `);
   if (err2) {
-    logger.error(`Failed to sign_tx transfer SOL`);
+    console.error(`Failed to sign_tx transfer SOL ${err2}`);
     return null;
   }
 
   // Parse the response from the hardware wallet
   const [err3, obj] = await to(commonUtil.jsonParse(stdout));
   if (err3 || !obj?.signature) {
-    logger.error(`Invalid sign_tx output: ${stdout}`);
+    console.error(`Invalid sign_tx output: ${stdout}`);
     return null;
   }
   const signedTransaction = `${obj.signature.replace(/^"|"$/g, '')}`;
@@ -762,25 +764,25 @@ async function transferSol(password, fromAddress, toAddress, amount, network) {
   const txBuff = tx.serialize();
   const txHash = await sol.sendRawTransaction(network, txBuff);
   if (!txHash) {
-    logger.error(`Invalid sendRawTransaction response`);
+    console.error(`Invalid sendRawTransaction response`);
     return null;
   }
-  const success = await db.addTx(
-    txHash,
-    fromAddress.toString(),
-    toAddress.toString(),
-    '',
-    '5000'.toString(),
-    0,
-    network,
-    'Send',
-    amount,
-    Date.now(),
-    0
-  );
-  if (!success) {
-    return null;
-  }
+  // const success = await db.addTx(
+  //   txHash,
+  //   fromAddress.toString(),
+  //   toAddress.toString(),
+  //   '',
+  //   '5000'.toString(),
+  //   0,
+  //   network,
+  //   'Send',
+  //   amount,
+  //   Date.now(),
+  //   0
+  // );
+  // if (!success) {
+  //   return null;
+  // }
 
   return { TransactionHash: txHash };
 }
@@ -806,20 +808,20 @@ async function transferSplToken(password, fromAddress, mintAddress, toAddress, a
   const jsonPayload = JSON.stringify(payload);
   // const keystoreParams = getKeystoreParams();
   // if (!keystoreParams) {
-  //   logger.error(`Failed to transfer SOL token: keystore params missing`);
+  //   console.error(`Failed to transfer SOL token: keystore params missing`);
   //   return null;
   // }
   const escapedPayload = jsonPayload.replace(/"/g, '\\"');
-  const [err2, stdout] = await commonUtil.exec(`${DEEPER_WALLET_BIN_PATH}  '${escapedPayload}' `);
+  const [err2, stdout] = await commonUtil.exec(`${DEEPER_WALLET_BIN_PATH}  ”${escapedPayload}“ `);
   if (err2) {
-    logger.error(`Failed to sign_tx transfer SOL token`);
+    console.error(`Failed to sign_tx transfer SOL token`);
     return null;
   }
 
   // Parse the response from the hardware wallet
   const [err3, obj] = await to(commonUtil.jsonParse(stdout));
   if (err3 || !obj?.signature) {
-    logger.error(`Invalid sign_tx output: ${stdout}`);
+    console.error(`Invalid sign_tx output: ${stdout}`);
     return null;
   }
   const signedTransaction = `${obj.signature.replace(/^"|"$/g, '')}`;
@@ -830,26 +832,26 @@ async function transferSplToken(password, fromAddress, mintAddress, toAddress, a
 
   const txHash = await sol.sendRawTransaction(network, txBuff);
   if (!txHash) {
-    logger.error(`Invalid sendRawTransaction response`);
+    console.error(`Invalid sendRawTransaction response`);
     return null;
   }
 
-  const success = await db.addTx(
-    txHash,
-    fromAddress.toString(),
-    toAddress.toString(),
-    mintAddress.toString(),
-    '8000'.toString(),
-    0,
-    network,
-    'Send',
-    amount,
-    Date.now(),
-    0
-  );
-  if (!success) {
-    return null;
-  }
+  // const success = await db.addTx(
+  //   txHash,
+  //   fromAddress.toString(),
+  //   toAddress.toString(),
+  //   mintAddress.toString(),
+  //   '8000'.toString(),
+  //   0,
+  //   network,
+  //   'Send',
+  //   amount,
+  //   Date.now(),
+  //   0
+  // );
+  // if (!success) {
+  //   return null;
+  // }
   return { TransactionHash: txHash };
 }
 
@@ -896,7 +898,7 @@ async function transferEth(password, fromAddress, toAddress, amount, network) {
   const jsonPayload = JSON.stringify(payload);
   // const keystoreParams = getKeystoreParams();
   // if (!keystoreParams) {
-  //   logger.error(`Failed to transfer ETH: keystore params missing`);
+  //   console.error(`Failed to transfer ETH: keystore params missing`);
   //   return null;
   // }
   console.error(`------ ${jsonPayload}`);
@@ -945,7 +947,7 @@ async function transferEth(password, fromAddress, toAddress, amount, network) {
 
 async function transferTrx(password, fromAddress, toAddress, amount, network) {
   const rawTx = await tron.getTransferTrxMessage(network, fromAddress, toAddress, amount);
-  logger.error(`rawTx ${rawTx}`);
+  console.error(`rawTx ${rawTx}`);
   if (!rawTx) {
     return null;
   }
@@ -966,58 +968,58 @@ async function transferTrx(password, fromAddress, toAddress, amount, network) {
   };
 
   const jsonPayload = JSON.stringify(payload);
-  logger.error(`------ ${jsonPayload}`);
+  console.error(`------ ${jsonPayload}`);
   // const keystoreParams = getKeystoreParams();
   // if (!keystoreParams) {
-  //   logger.error(`Failed to transfer ETH: keystore params missing`);
+  //   console.error(`Failed to transfer ETH: keystore params missing`);
   //   return null;
   // }
   const escapedPayload = jsonPayload.replace(/"/g, '\\"');
-  const [err2, stdout] = await commonUtil.exec(`${DEEPER_WALLET_BIN_PATH}  '${escapedPayload}' `);
+  const [err2, stdout] = await commonUtil.exec(`${DEEPER_WALLET_BIN_PATH}  ”${escapedPayload}“ `);
   if (err2) {
-    logger.error(`Failed to sign transfer trx`);
+    console.error(`Failed to sign transfer trx`);
     return null;
   }
-  logger.error(`transferTrx stdout ${stdout} `);
+  console.error(`transferTrx stdout ${stdout} `);
   // Parse the response from the hardware wallet
   const [err3, obj] = await to(commonUtil.jsonParse(stdout));
   if (err3 || !obj?.signatures) {
-    logger.error(`Invalid sign_tx output: ${stdout}`);
+    console.error(`Invalid sign_tx output: ${stdout}`);
     return null;
   }
 
   rawTx.signature = obj.signatures[0];
   const signedTransaction = JSON.stringify(rawTx);
   const txHash = await tron.broadcastTronTransaction(network, rawTx);
-  logger.error(`txHash broadcastTronTransaction: ${txHash}`);
+  console.error(`txHash broadcastTronTransaction: ${txHash}`);
   if (!txHash) {
-    logger.error(`Invalid broadcastTronTransaction: ${signedTransaction}`);
+    console.error(`Invalid broadcastTronTransaction: ${signedTransaction}`);
     return null;
   }
 
-  const success = await db.addTx(
-    txHash,
-    fromAddress.toString(),
-    toAddress.toString(),
-    '',
-    '1000',
-    0,
-    network,
-    'Send',
-    amount,
-    Date.now(),
-    0
-  );
-  if (!success) {
-    return null;
-  }
+  // const success = await db.addTx(
+  //   txHash,
+  //   fromAddress.toString(),
+  //   toAddress.toString(),
+  //   '',
+  //   '1000',
+  //   0,
+  //   network,
+  //   'Send',
+  //   amount,
+  //   Date.now(),
+  //   0
+  // );
+  // if (!success) {
+  //   return null;
+  // }
   return { TransactionHash: txHash };
 }
 
 async function transferTrc20(password, fromAddress, contractAddress, toAddress, amount, network) {
   const rawTx = await tron.getTransferTrc20Message(network, fromAddress, toAddress, amount, contractAddress);
   if (!rawTx?.raw_data_hex) {
-    logger.error(`Failed to getting raw_data_hex`);
+    console.error(`Failed to getting raw_data_hex`);
     return null;
   }
 
@@ -1039,19 +1041,19 @@ async function transferTrc20(password, fromAddress, contractAddress, toAddress, 
   const jsonPayload = JSON.stringify(payload);
   // const keystoreParams = getKeystoreParams();
   // if (!keystoreParams) {
-  //   logger.error(`Failed to transfer trc20: keystore params missing`);
+  //   console.error(`Failed to transfer trc20: keystore params missing`);
   //   return null;
   // }
   const escapedPayload = jsonPayload.replace(/"/g, '\\"');
-  const [err2, stdout] = await commonUtil.exec(`${DEEPER_WALLET_BIN_PATH}  '${escapedPayload}' `);
+  const [err2, stdout] = await commonUtil.exec(`${DEEPER_WALLET_BIN_PATH}  ”${escapedPayload}“ `);
   if (err2) {
-    logger.error(`Failed to bin sign trc20 transfer`);
+    console.error(`Failed to bin sign trc20 transfer`);
     return null;
   }
   // Parse the response from the hardware wallet
   const [err3, obj] = await to(commonUtil.jsonParse(stdout));
   if (err3 || !obj?.signatures) {
-    logger.error(`Invalid sign_tx output: ${stdout}`);
+    console.error(`Invalid sign_tx output: ${stdout}`);
     return null;
   }
 
@@ -1059,34 +1061,34 @@ async function transferTrc20(password, fromAddress, contractAddress, toAddress, 
   const signedTransaction = JSON.stringify(rawTx);
 
   const txHash = await tron.broadcastTronTransaction(network, rawTx);
-  logger.error(`txHash broadcastTronTransaction: ${txHash}`);
+  console.error(`txHash broadcastTronTransaction: ${txHash}`);
   if (!txHash) {
-    logger.error(`Invalid broadcastTronTransaction: ${signedTransaction}`);
+    console.error(`Invalid broadcastTronTransaction: ${signedTransaction}`);
     return null;
   }
 
-  const success = await db.addTx(
-    txHash,
-    fromAddress.toString(),
-    toAddress.toString(),
-    contractAddress.toString(),
-    '1000',
-    0,
-    network,
-    'Send',
-    amount,
-    Date.now(),
-    0
-  );
-  if (!success) {
-    return null;
-  }
+  // const success = await db.addTx(
+  //   txHash,
+  //   fromAddress.toString(),
+  //   toAddress.toString(),
+  //   contractAddress.toString(),
+  //   '1000',
+  //   0,
+  //   network,
+  //   'Send',
+  //   amount,
+  //   Date.now(),
+  //   0
+  // );
+  // if (!success) {
+  //   return null;
+  // }
   return { TransactionHash: txHash };
 }
 
 async function transfersui(password, tokenType, fromAddress, toAddress, amount, network) {
   const rawTx = await sui.getTransferSuiMessage(tokenType, fromAddress, amount, toAddress, network);
-  logger.error(`rawTx ${rawTx}`);
+  console.error(`rawTx ${rawTx}`);
   if (!rawTx) {
     return null;
   }
@@ -1112,23 +1114,23 @@ async function transfersui(password, tokenType, fromAddress, toAddress, amount, 
   };
 
   const jsonPayload = JSON.stringify(payload);
-  logger.error(`------ ${jsonPayload}`);
+  console.error(`------ ${jsonPayload}`);
   // const keystoreParams = getKeystoreParams();
   // if (!keystoreParams) {
-  //   logger.error(`Failed to transfer ETH: keystore params missing`);
+  //   console.error(`Failed to transfer ETH: keystore params missing`);
   //   return null;
   // }
   const escapedPayload = jsonPayload.replace(/"/g, '\\"');
-  const [err2, stdout] = await commonUtil.exec(`${DEEPER_WALLET_BIN_PATH}  '${escapedPayload}' `);
+  const [err2, stdout] = await commonUtil.exec(`${DEEPER_WALLET_BIN_PATH}  ”${escapedPayload}“ `);
   if (err2) {
-    logger.error(`Failed to sign transfer trx`);
+    console.error(`Failed to sign transfer trx`);
     return null;
   }
-  logger.error(`transferTrx stdout ${stdout} `);
+  console.error(`transferTrx stdout ${stdout} `);
   // Parse the response from the hardware wallet
   const [err3, obj] = await to(commonUtil.jsonParse(stdout));
   if (err3 || !obj?.signature) {
-    logger.error(`Invalid sign_tx output: ${stdout}`);
+    console.error(`Invalid sign_tx output: ${stdout}`);
     return null;
   }
 
@@ -1136,28 +1138,28 @@ async function transfersui(password, tokenType, fromAddress, toAddress, amount, 
 
   const txHash = await sendSuiTransaction(txString, signature);
 
-  logger.error(`txHash broadcastTronTransaction: ${txHash}`);
+  console.error(`txHash broadcastTronTransaction: ${txHash}`);
   if (!txHash) {
-    logger.error(`Invalid broadcastTronTransaction: ${signedTransaction}`);
+    console.error(`Invalid broadcastTronTransaction: ${signedTransaction}`);
     return null;
   }
 
-  const success = await db.addTx(
-    txHash,
-    fromAddress.toString(),
-    toAddress.toString(),
-    '',
-    '1000',
-    0,
-    network,
-    'Send',
-    amount,
-    Date.now(),
-    0
-  );
-  if (!success) {
-    return null;
-  }
+  // const success = await db.addTx(
+  //   txHash,
+  //   fromAddress.toString(),
+  //   toAddress.toString(),
+  //   '',
+  //   '1000',
+  //   0,
+  //   network,
+  //   'Send',
+  //   amount,
+  //   Date.now(),
+  //   0
+  // );
+  // if (!success) {
+  //   return null;
+  // }
   return { TransactionHash: txHash };
 }
 
@@ -1174,7 +1176,7 @@ exports.transferContractToken = async (password, fromAddress, contractAddress, t
 
 async function transferEthErc20(password, fromAddress, contractAddress, toAddress, amount, network) {
   const res = await eth.get_tx_essential_elem(network, fromAddress);
-  logger.error(`get_tx_essential_elem ${res}`);
+  console.error(`get_tx_essential_elem ${res}`);
   if (!res) {
     return null;
   }
@@ -1214,44 +1216,44 @@ async function transferEthErc20(password, fromAddress, contractAddress, toAddres
   const jsonPayload = JSON.stringify(payload);
   // const keystoreParams = getKeystoreParams();
   // if (!keystoreParams) {
-  //   logger.error(`Failed to transfer ETH ERC20: keystore params missing`);
+  //   console.error(`Failed to transfer ETH ERC20: keystore params missing`);
   //   return null;
   // }
   const escapedPayload = jsonPayload.replace(/"/g, '\\"');
-  const [err2, stdout] = await commonUtil.exec(`${DEEPER_WALLET_BIN_PATH}  '${escapedPayload}' `);
+  const [err2, stdout] = await commonUtil.exec(`${DEEPER_WALLET_BIN_PATH}  ”${escapedPayload}“ `);
   if (err2) {
-    logger.error(`Failed to transfer ETH ERC20`);
+    console.error(`Failed to transfer ETH ERC20`);
     return null;
   }
   const [err3, obj] = await to(commonUtil.jsonParse(stdout));
   if (err3 || !obj?.signature) {
-    logger.error(`Invalid sign_tx output: ${stdout}`);
+    console.error(`Invalid sign_tx output: ${stdout}`);
     return null;
   }
 
   const signedTransaction = `0x${obj.signature.replace(/^"|"$/g, '')}`;
   const txHash = await eth.sendEthRawTransaction(network, signedTransaction);
   if (!txHash) {
-    logger.error(`Invalid sendEthRawTransaction response: ${JSON.stringify(proxyResponse.data)}`);
+    console.error(`Invalid sendEthRawTransaction response: ${JSON.stringify(proxyResponse.data)}`);
     return null;
   }
-  const success = await db.addTx(
-    txHash,
-    fromAddress.toString(),
-    toAddress.toString(),
-    contractAddress.toString(),
-    gasFee.toString(),
-    0,
-    network,
-    'Send',
-    amount,
-    Date.now(),
-    0
-  );
-  if (!success) {
-    logger.error(`Failed to add tx`);
-    return null;
-  }
+  // const success = await db.addTx(
+  //   txHash,
+  //   fromAddress.toString(),
+  //   toAddress.toString(),
+  //   contractAddress.toString(),
+  //   gasFee.toString(),
+  //   0,
+  //   network,
+  //   'Send',
+  //   amount,
+  //   Date.now(),
+  //   0
+  // );
+  // if (!success) {
+  //   console.error(`Failed to add tx`);
+  //   return null;
+  // }
   return { TransactionHash: txHash };
 }
 

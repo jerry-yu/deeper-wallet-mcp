@@ -76,10 +76,10 @@ async function getSplTokenBalance(network,tokenMintAddress, address ) {
   const tokenAccount = await getAssociatedTokenAddress(mint, publicKey);
   const [error, account] = await to(getAccount(connection, tokenAccount));
   if (error) {
-    logger.error(`Error getting account: ${error}`);
+    console.error(`Error getting account: ${error}`);
     return { balance: 0 };
   }
-  logger.error(`-- getting account: ${account.address} ${account.amount}`);
+  console.error(`-- getting account: ${account.address} ${account.amount}`);
   return { balance: account.amount.toString() };
 }
 
@@ -97,7 +97,7 @@ async function getTokenMetaplexInfo(network, tokenMintAddress) {
   console.warn('------------ ', metadataAddress);
   const [error, accountInfo] = await to(connection.getAccountInfo(metadataAddress));
   if (error) {
-    logger.error(`Metadata account not found! ${error}`);
+    console.error(`Metadata account not found! ${error}`);
     return null;
   }
   const data = accountInfo.data;
@@ -105,7 +105,7 @@ async function getTokenMetaplexInfo(network, tokenMintAddress) {
 
   const [err, mintAccountInfo] = await to(connection.getParsedAccountInfo(mintPublicKey));
   if (err) {
-    logger.error(`Error getting mint account info: ${err}`);
+    console.error(`Error getting mint account info: ${err}`);
     return metadata;
   }
   if (mintAccountInfo && mintAccountInfo.value) {
@@ -120,7 +120,7 @@ async function sendRawTransaction(network, rawTransaction) {
   const connection = new Connection(url);
   const [error, signature] = await to(sendAndConfirmRawTransaction(connection, rawTransaction));
   if (error) {
-    logger.error(`Error sending raw transaction: ${error}`);
+    console.error(`Error sending raw transaction: ${error}`);
     return null;
   }
   return signature;
@@ -129,9 +129,10 @@ async function sendRawTransaction(network, rawTransaction) {
 async function getTransferSolMessage(network, sender, receiver, amount) {
   const url = getRpcUrl(network);
   const connection = new Connection(url);
+  console.warn('getTransferSolMessage:', url, sender, receiver, amount);
   const [error, blockhash] = await to(connection.getLatestBlockhash());
   if (error) {
-    logger.error(`Error getting blockhash: ${error}`);
+    console.error(`Error getting blockhash: ${error}`);
     return null;
   }
   const fromPubkey = new PublicKey(sender);
@@ -144,6 +145,7 @@ async function getTransferSolMessage(network, sender, receiver, amount) {
   );
   transaction.recentBlockhash = blockhash.blockhash;
   transaction.feePayer = fromPubkey;
+  console.warn('transaction:', transaction);
   return transaction;
 }
 
@@ -160,7 +162,7 @@ async function getTransferSplMessage(network, fromAddress, toAddress, amount, mi
 
   const [error, accountInfo] = await to(connection.getAccountInfo(toTokenAccount));
   if (error) {
-    logger.error(`Error getting account info: ${error}`);
+    console.error(`Error getting account info: ${error}`);
     return null;
   }
   const instructions = [];
@@ -184,7 +186,7 @@ async function getTransferSplMessage(network, fromAddress, toAddress, amount, mi
 
   const [err, latestBlockhash] = await to(connection.getLatestBlockhash());
   if (err) {
-    logger.error(`Error getting latest blockhash: ${err}`);
+    console.error(`Error getting latest blockhash: ${err}`);
     return null;
   }
   transaction.recentBlockhash = latestBlockhash.blockhash;
