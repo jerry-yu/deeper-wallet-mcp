@@ -228,7 +228,7 @@ exports.createHdStore = async (password, passwordHint, name) => {
   //   return null;
   // }
   const escapedPayload = jsonPayload.replace(/"/g, '\\"');
-  const [error1, stdout1] = await commonUtil.exec(`${DEEPER_WALLET_BIN_PATH} '${jsonPayload}' `);
+  const [error1, stdout1] = await commonUtil.exec(`${DEEPER_WALLET_BIN_PATH} "${escapedPayload}" `);
   if (error1) {
     console.error(`Failed to create HD store`);
     return null;
@@ -265,7 +265,7 @@ exports.importHdStore = async (mnemonic, password, passwordHint, name, overwrite
   //   return null;
   // }
   const escapedPayload = jsonPayload.replace(/"/g, '\\"');
-  const [error1, stdout1] = await commonUtil.exec(`${DEEPER_WALLET_BIN_PATH} '${jsonPayload}' `);
+  const [error1, stdout1] = await commonUtil.exec(`${DEEPER_WALLET_BIN_PATH} "${escapedPayload}" `);
   if (error1) {
     console.error(`Failed to import HD store`);
     return null;
@@ -323,7 +323,7 @@ exports.exportMnemonic = async password => {
   //   return null;
   // }
   const escapedPayload = jsonPayload.replace(/"/g, '\\"');
-  const [error1, stdout] = await commonUtil.exec(`${DEEPER_WALLET_BIN_PATH} '${jsonPayload}' `);
+  const [error1, stdout] = await commonUtil.exec(`${DEEPER_WALLET_BIN_PATH} "${escapedPayload}" `);
   if (error1) {
     console.error(`Failed to export mnemonic`);
     return null;
@@ -352,7 +352,7 @@ exports.exportKeystore = async () => {
   //   return null;
   // }
   const escapedPayload = jsonPayload.replace(/"/g, '\\"');
-  const [error1, stdout] = await commonUtil.exec(`${DEEPER_WALLET_BIN_PATH} '${jsonPayload}' `);
+  const [error1, stdout] = await commonUtil.exec(`${DEEPER_WALLET_BIN_PATH} "${escapedPayload}" `);
   if (error1) {
     console.error(`Failed to export mnemonic`);
     return null;
@@ -389,7 +389,7 @@ exports.exportPrivateKey = async (password, network, address) => {
   //   return null;
   // }
   const escapedPayload = jsonPayload.replace(/"/g, '\\"');
-  const [error1, stdout] = await commonUtil.exec(`${DEEPER_WALLET_BIN_PATH} '${jsonPayload}' `);
+  const [error1, stdout] = await commonUtil.exec(`${DEEPER_WALLET_BIN_PATH} "${escapedPayload}" `);
   if (error1) {
     console.error(`Failed to export private key`);
     return null;
@@ -665,7 +665,7 @@ async function transferBtc(password, fromAddress, toAddress, amount, network) {
   //   return null;
   // }
   const escapedPayload = jsonPayload.replace(/"/g, '\\"');
-  const [err2, stdout] = await commonUtil.exec(`${DEEPER_WALLET_BIN_PATH} '${jsonPayload}' `);
+  const [err2, stdout] = await commonUtil.exec(`${DEEPER_WALLET_BIN_PATH} "${escapedPayload}" `);
   if (err2) {
     console.error(`Failed to sign_tx transfer btc: ${err2}`);
     return null;
@@ -812,7 +812,7 @@ async function transferSplToken(password, fromAddress, mintAddress, toAddress, a
   //   return null;
   // }
   const escapedPayload = jsonPayload.replace(/"/g, '\\"');
-  const [err2, stdout] = await commonUtil.exec(`${DEEPER_WALLET_BIN_PATH}  ”${escapedPayload}“ `);
+  const [err2, stdout] = await commonUtil.exec(`${DEEPER_WALLET_BIN_PATH}  "${escapedPayload}" `);
   if (err2) {
     console.error(`Failed to sign_tx transfer SOL token`);
     return null;
@@ -975,7 +975,7 @@ async function transferTrx(password, fromAddress, toAddress, amount, network) {
   //   return null;
   // }
   const escapedPayload = jsonPayload.replace(/"/g, '\\"');
-  const [err2, stdout] = await commonUtil.exec(`${DEEPER_WALLET_BIN_PATH}  ”${escapedPayload}“ `);
+  const [err2, stdout] = await commonUtil.exec(`${DEEPER_WALLET_BIN_PATH}  "${escapedPayload}" `);
   if (err2) {
     console.error(`Failed to sign transfer trx`);
     return null;
@@ -1045,7 +1045,7 @@ async function transferTrc20(password, fromAddress, contractAddress, toAddress, 
   //   return null;
   // }
   const escapedPayload = jsonPayload.replace(/"/g, '\\"');
-  const [err2, stdout] = await commonUtil.exec(`${DEEPER_WALLET_BIN_PATH}  ”${escapedPayload}“ `);
+  const [err2, stdout] = await commonUtil.exec(`${DEEPER_WALLET_BIN_PATH}  "${escapedPayload}" `);
   if (err2) {
     console.error(`Failed to bin sign trc20 transfer`);
     return null;
@@ -1121,7 +1121,7 @@ async function transfersui(password, tokenType, fromAddress, toAddress, amount, 
   //   return null;
   // }
   const escapedPayload = jsonPayload.replace(/"/g, '\\"');
-  const [err2, stdout] = await commonUtil.exec(`${DEEPER_WALLET_BIN_PATH}  ”${escapedPayload}“ `);
+  const [err2, stdout] = await commonUtil.exec(`${DEEPER_WALLET_BIN_PATH}  "${escapedPayload}" `);
   if (err2) {
     console.error(`Failed to sign transfer trx`);
     return null;
@@ -1170,6 +1170,9 @@ exports.transferContractToken = async (password, fromAddress, contractAddress, t
     return transferTrc20(password, fromAddress, contractAddress, toAddress, amount, network);
   } else if (network.startsWith('SUI')) {
     return transfersui(password, contractAddress, fromAddress, toAddress, amount, network);
+  } else if (network.startsWith('BITCOIN')) {
+    console.error(`BTC does not support contract token transfer`);
+    return null;
   }
   return transferEthErc20(password, fromAddress, contractAddress, toAddress, amount, network);
 };
@@ -1220,7 +1223,7 @@ async function transferEthErc20(password, fromAddress, contractAddress, toAddres
   //   return null;
   // }
   const escapedPayload = jsonPayload.replace(/"/g, '\\"');
-  const [err2, stdout] = await commonUtil.exec(`${DEEPER_WALLET_BIN_PATH}  ”${escapedPayload}“ `);
+  const [err2, stdout] = await commonUtil.exec(`${DEEPER_WALLET_BIN_PATH}  "${escapedPayload}" `);
   if (err2) {
     console.error(`Failed to transfer ETH ERC20`);
     return null;

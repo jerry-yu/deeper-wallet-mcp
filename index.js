@@ -5,7 +5,7 @@ const { z } = require('zod');
 const { serverDescription } = require('./instructions');
 const { loadAllDb } = require('./deeperWallet/sqlite3.js');
 const to  = require('await-to-js').default;
-const { getBalance,getContractBalance,getContractMeta,transferToken, } = require('./deeperWallet');
+const { getBalance,getContractBalance,getContractMeta,transferToken, transferContractToken ,} = require('./deeperWallet');
 
 const NetworkDescribe = 
   "The network to perform the operation on. " +
@@ -148,6 +148,41 @@ async function main() {
         }
     );
 
+    server.tool(
+        'transferContractToken',
+        'Transfer contract tokens (e.g., ERC20) from one address to another on a specified blockchain network',
+        {
+            fromAddress: z.string().describe('The sender address'),
+            toAddress: z.string().describe('The recipient address'),
+            contract: z.string().describe('The token contract address (ERC20/SPL/etc)'),
+            amount: z.string().describe('The amount to transfer (as a string, in the smallest unit)'),
+            network: z.string().describe(NetworkDescribe),
+        },
+        async ({ fromAddress, toAddress, contract, amount, network }) => {
+            const [err, result] = await to(
+                transferContractToken('', fromAddress, toAddress, contract, amount, network)
+            );
+            if (err || !result) {
+                return {
+                    content: [
+                        {
+                            type: 'text',
+                            text: `Failed to transfer contract tokens: ${err && err.message ? err.message : err}`,
+                        }
+                    ],
+                };
+            }
+            return {
+                content: [
+                    {
+                        type: 'text',
+                        text: `Contract token transfer successful: ${JSON.stringify(result)}`,
+                    }
+                ],
+            };
+        }
+    );
+
     const transport = new StdioServerTransport();
     await server.connect(transport);
 }
@@ -171,15 +206,23 @@ async function main2() {
     //     return;
     // }
     // console.warn(`ERC20 Meta: ${ JSON.stringify(erc20Meta)}`);
-    const [err4, transferResult] = await to(transferToken('', '7ZS48GH3ndFJyPBkE7KpCKDBq2jDCrhvQyi2ZnPtDU5i', '5kSfsEoPXv4cgKx4Ct2irz9xF6mWcTo1NLFfKfKs11fu', '100000','SOLANA-DEVNET'));
-    if (err4) {
-        console.error('Error transferring token:', err4);
+    // const [err4, transferResult] = await to(transferToken('', '7ZS48GH3ndFJyPBkE7KpCKDBq2jDCrhvQyi2ZnPtDU5i', '5kSfsEoPXv4cgKx4Ct2irz9xF6mWcTo1NLFfKfKs11fu', '100000','SOLANA-DEVNET'));
+    // if (err4) {
+    //     console.error('Error transferring token:', err4);
+    //     return;
+    // }
+    // console.warn(`Transfer Result: ${ JSON.stringify(transferResult)}`);
+
+    const [err5, transferResult2] = await to(transferContractToken('', '7ZS48GH3ndFJyPBkE7KpCKDBq2jDCrhvQyi2ZnPtDU5i','9bm8vGK4qwJ1C6DrWhtE6Ext1ueDm9EbhdzXYAsWp939','5kSfsEoPXv4cgKx4Ct2irz9xF6mWcTo1NLFfKfKs11fu', '1500000000','SOLANA-DEVNET'));
+    if (err5) {
+        console.error('Error transferring contract token:', err5);
         return;
     }
-    console.warn(`Transfer Result: ${ JSON.stringify(transferResult)}`);
+    console.warn(`Transfer Contract Token Result: ${ JSON.stringify(transferResult2)}`);
+
 }
 
-main().catch((error) => {
+main2().catch((error) => {
     console.error('Error starting server:', error);
     process.exit(1);
 });
