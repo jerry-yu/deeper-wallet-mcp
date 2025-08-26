@@ -76,6 +76,8 @@ function getDerivePath(coin, path) {
       return "m/84'/0'/0'/0/" + path;
     case 'TRON':
       return "m/44'/195'/0'/0/" + path;
+    // case 'SUI':
+    //   return "m/44'/784'/0'/0/" + path;
     default:
       return "m/44'/60'/0'/0/" + path;
   }
@@ -272,11 +274,11 @@ exports.importHdStore = async (mnemonic, password, passwordHint, name, overwrite
   }
 
   const [error2, obj1] = await to(commonUtil.jsonParse(stdout1));
-  if (error2 || !obj1?.hash) {
+  if (error2 || !obj1?.id) {
     console.error(`Invalid hd_store_import output: ${stdout1}`);
     return null;
   }
-  await setNameSource(name, 1, obj1.hash);
+  //await setNameSource(name, 1, obj1.hash);
   return obj1;
 };
 
@@ -443,6 +445,8 @@ async function derive_address(password, network, idx) {
   //   return null;
   // }
 
+  console.error(`------ ${escapedString}`);
+
   const [error1, stdout] = await commonUtil.exec(`${DEEPER_WALLET_BIN_PATH}  "${escapedString}" `);
   if (error1) {
     console.error(`Failed to add address`);
@@ -469,35 +473,35 @@ exports.renameWallet = async name => {
 };
 
 exports.addAccount = async (password, chains) => {
-  let idx = await db.getMaxIndex();
+  ///let idx = await db.getMaxIndex();
   let addresses = [];
   for (const chain of chains) {
-    const addr = await derive_address(password, chain, idx);
+    const addr = await derive_address(password, chain, 0);
     if (!addr) {
       return false;
     }
     addresses.push(addr);
   }
   const arr = addresses.map((addr, i) => {
-    return [idx, chains[i], addr];
+    return [chains[i], addr];
   });
-  const success = await db.insertDeriveAddress(arr);
-  if (!success) {
-    console.error(`Failed to insert address of chains`);
-    return false;
-  }
+  // const success = await db.insertDeriveAddress(arr);
+  // if (!success) {
+  //   console.error(`Failed to insert address of chains`);
+  //   return false;
+  // }
 
-  const inserted = await db.insertAccountName(idx, 'Account' + (idx + 1).toString().padStart(2, '0'));
-  if (!inserted) {
-    console.error(`Failed to insert account name`);
-    return false;
-  }
-  return true;
+  // const inserted = await db.insertAccountName(idx, 'Account' + (idx + 1).toString().padStart(2, '0'));
+  // if (!inserted) {
+  //   console.error(`Failed to insert account name`);
+  //   return false;
+  // }
+  return arr;
 };
 
 exports.getTransactionHistory = async (network, address) => {
   let apiEndpoint;
-  if (network.toLowerCase().startsWith('solanachain')) {
+  if (network.toLowerCase().startsWith('SOLANA')) {
     apiEndpoint = `get_solana_tx_history/${network}/${address}`;
   } else {
     apiEndpoint = `get_tx_history/${network}/${address}`;
@@ -522,7 +526,6 @@ exports.getTokenTransactionHistory = async (network, address, contractAddress) =
 };
 
 exports.getTransactionDetail = async txHash => {
-
   const apiEndpoint = `get_tx_detail/${txHash}`;
   const [error, txDetailResponse] = await to(axiosGet(apiEndpoint));
   if (error) {

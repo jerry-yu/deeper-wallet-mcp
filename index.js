@@ -4,15 +4,74 @@ const { McpServer } = require('@modelcontextprotocol/sdk/server/mcp.js');
 const { z } = require('zod');
 const { serverDescription } = require('./instructions');
 const { loadAllDb } = require('./deeperWallet/sqlite3.js');
-const to  = require('await-to-js').default;
-const { getBalance,getContractBalance,getContractMeta,transferToken, transferContractToken ,} = require('./deeperWallet');
+const to = require('await-to-js').default;
+const { getBalance, getContractBalance, getContractMeta, transferToken, transferContractToken,addAccount, importHdStore, } = require('./deeperWallet');
+const fs = require('fs');
+const path = require('path');
+const dotenv = require('dotenv');
+const os = require('os');
 
-const NetworkDescribe = 
-  "The network to perform the operation on. " +
-  "On non-mainnet, set as <MAINNET>-<TESTNET>. " +
-  "Example: ETHEREUM-SEPOLIA, POLYGON-MUMBAI.";
+const NetworkDescribe =
+    "The network to perform the operation on. " +
+    "On non-mainnet, set as <MAINNET>-<TESTNET>. " +
+    "Example: ETHEREUM-SEPOLIA, POLYGON-MUMBAI.";
 
 async function main() {
+    // Parse command line for "-m mnemonic"
+    let mnemonic = null;
+    let needImportMnemonic = true;
+    const mIndex = process.argv.indexOf('-m');
+    if (mIndex !== -1 && process.argv[mIndex + 1]) {
+        mnemonic = process.argv[mIndex + 1];
+    } else {
+        // Check for json files in ~/.deeperWallet
+        const walletDir = path.join(os.homedir(), '.deeperWallet');
+        if (fs.existsSync(walletDir)) {
+            const files = fs.readdirSync(walletDir).filter(f => f.endsWith('.json'));
+            for (const file of files) {
+                const filePath = path.join(walletDir, file);
+                try {
+                    const data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+                    if (data.id || data.version) {
+                        needImportMnemonic = false;
+                        break;
+                    }
+                } catch (e) {
+                    // Ignore parse errors
+                }
+            }
+        }
+        if (needImportMnemonic || !mnemonic) {
+            const envPath = path.resolve(__dirname, '.env');
+            if (fs.existsSync(envPath)) {
+                dotenv.config({ path: envPath });
+            } else {
+                console.warn('.env file not found in current directory');
+            }
+            mnemonic = process.env.MNEMONIC;
+            if (!mnemonic) {
+                console.warn('MNEMONIC not found in .env file');
+                return;
+            }
+        }
+    }
+
+    if (needImportMnemonic && mnemonic) {
+        const res = await importHdStore(mnemonic, '', '', 'deeperWallet', true, 'MNEMONIC');
+        if (!res) {
+            console.error('Failed to import mnemonic and create wallet file.');
+            return;
+        }
+        console.log(`Mnemonic imported and wallet file created successfully ${JSON.stringify(res)}.`);
+        
+        const addRes = await addAccount('', ['ETHEREUM', 'SOLANA', 'TRON','BITCOIN']);
+        if (!addRes) {
+            console.error('Failed to add default account.');
+            return;
+        }
+        console.warn(`Default account added successfully ${JSON.stringify(addRes)}.`);
+    }
+
     //loadAllDb();
     const server = new McpServer({
         name: 'deeper-wallet-mcp',
@@ -213,16 +272,16 @@ async function main2() {
     // }
     // console.warn(`Transfer Result: ${ JSON.stringify(transferResult)}`);
 
-    const [err5, transferResult2] = await to(transferContractToken('', '7ZS48GH3ndFJyPBkE7KpCKDBq2jDCrhvQyi2ZnPtDU5i','9bm8vGK4qwJ1C6DrWhtE6Ext1ueDm9EbhdzXYAsWp939','5kSfsEoPXv4cgKx4Ct2irz9xF6mWcTo1NLFfKfKs11fu', '1500000000','SOLANA-DEVNET'));
+    const [err5, transferResult2] = await to(transferContractToken('', '7ZS48GH3ndFJyPBkE7KpCKDBq2jDCrhvQyi2ZnPtDU5i', '9bm8vGK4qwJ1C6DrWhtE6Ext1ueDm9EbhdzXYAsWp939', '5kSfsEoPXv4cgKx4Ct2irz9xF6mWcTo1NLFfKfKs11fu', '1500000000', 'SOLANA-DEVNET'));
     if (err5) {
         console.error('Error transferring contract token:', err5);
         return;
     }
-    console.warn(`Transfer Contract Token Result: ${ JSON.stringify(transferResult2)}`);
+    console.warn(`Transfer Contract Token Result: ${JSON.stringify(transferResult2)}`);
 
 }
 
-main2().catch((error) => {
+main().catch((error) => {
     console.error('Error starting server:', error);
     process.exit(1);
 });
