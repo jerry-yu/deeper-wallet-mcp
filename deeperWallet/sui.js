@@ -12,9 +12,9 @@ function getRpcUrl(network) {
   return url ? url : 'https://fullnode.testnet.sui.io';
 }
 
-async function getSuiBalance( network,address) {
+async function getSuiBalance(network, address) {
   const url = getRpcUrl(network);
-  const [err,response] = await to(axios.post(url, {
+  const [err, response] = await to(axios.post(url, {
     jsonrpc: '2.0',
     id: 1,
     method: 'suix_getBalance',
@@ -22,12 +22,12 @@ async function getSuiBalance( network,address) {
   }));
   if (err) {
     logger.error(`Failed to getSuiBalance: ${url} ${address} ${err}`);
-    return null; 
+    return null;
   }
-  return {balance: response.data.result.totalBalance};
+  return { balance: response.data.result.totalBalance };
 }
 
-async function getTokenBalance(network,tokenType, address) {
+async function getTokenBalance(network, tokenType, address) {
   const [err, response] = await to(axios.post(getRpcUrl(network), {
     jsonrpc: '2.0',
     id: 1,
@@ -38,7 +38,7 @@ async function getTokenBalance(network,tokenType, address) {
     logger.error(`Failed to getTokenBalance: ${network} ${address} ${tokenType} ${err}`);
     return null;
   }
-  return {balance: response.data.result.totalBalance};
+  return { balance: response.data.result.totalBalance };
 }
 
 async function getCoins(address, tokenType, network) {
@@ -54,29 +54,43 @@ async function getCoins(address, tokenType, network) {
 
 async function getTransferSuiMessage(tokenType, address, amount, recipient, network) {
   const suiInfo = await getCoins(address, tokenType, network);
-  logger.info('suiInfo:', suiInfo);
+  console.warn('suiInfo:', suiInfo);
+  let gasBudget = 0n;
+  if (tokenType === '0x2::sui::SUI') {
+    gasBudget = 5000000n;
+  }
   const coins = suiInfo.data;
   let objIds = [];
   let sum = 0n;
+  amount = BigInt(amount);
   for (let i = 0; i < coins.length; i++) {
     const coin = coins[i];
     sum += BigInt(coin.balance);
     objIds.push(coin.coinObjectId);
-    logger.info('sum:', sum);
+    console.warn('sum:', sum);
     if (sum > amount + gasBudget) {
       break;
     }
   }
+
+  console.warn('amount:', amount, 'gasBudget:', gasBudget, 'sum:', sum);
   if (sum < amount + gasBudget) {
+    console.error('Insufficient balance');
     return null;
   }
 
-  const url = getRpcUrl(network);
+  let method = 'unsafe_pay';
+  if (tokenType === '0x2::sui::SUI') {
+    method = 'unsafe_paySui';
+  }
 
-  const response = await axios.post(url, {
+  const url = getRpcUrl(network);
+  console.warn('objIds:', objIds, 'url', url,);
+
+  const [err, response] = await to(axios.post(url, {
     jsonrpc: '2.0',
     id: 1,
-    method: 'unsafe_pay',
+    method,
     params: {
       signer: address,
       input_coins: objIds,
@@ -84,7 +98,12 @@ async function getTransferSuiMessage(tokenType, address, amount, recipient, netw
       amounts: [amount.toString()],
       gas_budget: gasBudget.toString(),
     },
-  });
+  }));
+  if (err) {
+    logger.error(`Failed to getTransferSuiMessage: ${network} ${address} ${tokenType} ${amount} ${recipient} ${err}`);
+    return null;
+  }
+  console.warn('response:', response.data);
   return response.data.result;
 }
 
@@ -107,7 +126,7 @@ async function sendSuiTransaction(txByte, signature, network) {
     method: 'sui_executeTransactionBlock',
     params: [txByte, [signature]],
   });
-  logger.info('response:', response.data);
+  console.warn('response:', response.data);
   return response.data.result;
 }
 

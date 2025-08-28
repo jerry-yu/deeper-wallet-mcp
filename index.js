@@ -44,7 +44,7 @@ async function main() {
         if (needImportMnemonic || !mnemonic) {
             const envPath = path.resolve(__dirname, '.env');
             if (fs.existsSync(envPath)) {
-                dotenv.config({ path: envPath });
+                dotenv.config({ path: envPath,quiet:true });
             } else {
                 console.warn('.env file not found in current directory');
             }
@@ -64,7 +64,7 @@ async function main() {
         }
         console.log(`Mnemonic imported and wallet file created successfully ${JSON.stringify(res)}.`);
         
-        const addRes = await addAccount('', ['ETHEREUM', 'SOLANA', 'TRON','BITCOIN']);
+        const addRes = await addAccount('',['ETHEREUM', 'SOLANA', 'TRON','SUI','BITCOIN']);
         if (!addRes) {
             console.error('Failed to add default account.');
             return;
@@ -272,13 +272,31 @@ async function main2() {
     // }
     // console.warn(`Transfer Result: ${ JSON.stringify(transferResult)}`);
 
-    const [err5, transferResult2] = await to(transferContractToken('', '7ZS48GH3ndFJyPBkE7KpCKDBq2jDCrhvQyi2ZnPtDU5i', '9bm8vGK4qwJ1C6DrWhtE6Ext1ueDm9EbhdzXYAsWp939', '5kSfsEoPXv4cgKx4Ct2irz9xF6mWcTo1NLFfKfKs11fu', '1500000000', 'SOLANA-DEVNET'));
-    if (err5) {
-        console.error('Error transferring contract token:', err5);
+    // const [err5, transferResult2] = await to(transferContractToken('', '7ZS48GH3ndFJyPBkE7KpCKDBq2jDCrhvQyi2ZnPtDU5i', '9bm8vGK4qwJ1C6DrWhtE6Ext1ueDm9EbhdzXYAsWp939', '5kSfsEoPXv4cgKx4Ct2irz9xF6mWcTo1NLFfKfKs11fu', '1500000000', 'SOLANA-DEVNET'));
+    // if (err5) {
+    //     console.error('Error transferring contract token:', err5);
+    //     return;
+    // }
+    // console.warn(`Transfer Contract Token Result: ${JSON.stringify(transferResult2)}`);
+
+    const [err6,transferResult3] = await to(transferToken('', '0xe9db2b843b35e4904eb1029f704821cc5cb3ff0e9ea0cf6c892557256cb13969', '0x0feb54a725aa357ff2f5bc6bb023c05b310285bd861275a30521f339a434ebb3', '10000000','SUI-TESTNET'));
+    if (err6) {
+        console.error('Error transferring token:', err6);
         return;
     }
-    console.warn(`Transfer Contract Token Result: ${JSON.stringify(transferResult2)}`);
+    console.warn(`Transfer Result: ${ JSON.stringify(transferResult3)}`);
 
+    const [err7,transferResult4] = await to(transferContractToken('', 
+        '0xe9db2b843b35e4904eb1029f704821cc5cb3ff0e9ea0cf6c892557256cb13969',
+        '0x8190b041122eb492bf63cb464476bd68c6b7e570a4079645a8b28732b6197a82::wal::WAL', 
+        '0x0feb54a725aa357ff2f5bc6bb023c05b310285bd861275a30521f339a434ebb3', 
+        '10000000',
+        'SUI-TESTNET'));
+    if (err7) {
+        console.error('Error transferring contract token:', err7);
+        return;
+    }
+    console.warn(`Transfer Contract Token Result: ${JSON.stringify(transferResult4)}`);
 }
 
 main().catch((error) => {

@@ -41,6 +41,13 @@ const tokenPriceCache = new NodeCache();
 const exchangeRates = new NodeCache();
 const decimalsCache = new NodeCache();
 
+function getCurve(network) {
+  if (network.startsWith('SUI')) {
+    return 'ED25519';
+  }
+  return '';
+}
+
 //For derive address
 function getNetwork(network) {
   switch (true) {
@@ -48,6 +55,7 @@ function getNetwork(network) {
     case network === 'BITCOIN':
     case network.startsWith('SOLANA'):
     case network.startsWith('TRON'):
+    case network.startsWith('SUI'):
       return 'MAINNET';
     case network === 'ETHEREUM-SEPOLIA':
       return 'SEPOLIA';
@@ -76,8 +84,8 @@ function getDerivePath(coin, path) {
       return "m/84'/0'/0'/0/" + path;
     case 'TRON':
       return "m/44'/195'/0'/0/" + path;
-    // case 'SUI':
-    //   return "m/44'/784'/0'/0/" + path;
+    case 'SUI':
+      return "m/44'/784'/0'/0'/" + path + "'";
     default:
       return "m/44'/60'/0'/0/" + path;
   }
@@ -413,6 +421,7 @@ exports.exportPrivateKey = async (password, network, address) => {
 };
 
 async function derive_address(password, network, idx) {
+  network = network.toUpperCase();
   const coin = getCoin(network);
   let seg_wit = '';
   if (coin == 'BITCOIN') {
@@ -432,7 +441,7 @@ async function derive_address(password, network, idx) {
           network: getNetwork(network), // Include token_network only if provided
           seg_wit: seg_wit,
           chain_id: '',
-          curve: '',
+          curve: getCurve(network),
         },
       ],
     },
@@ -746,7 +755,7 @@ async function transferSol(password, fromAddress, toAddress, amount, network) {
   // }
 
   const escapedPayload = jsonPayload.replace(/"/g, '\\"');
-    console.error(`------ ${escapedPayload}`);
+  console.error(`------ ${escapedPayload}`);
   const [err2, stdout] = await commonUtil.exec(`${DEEPER_WALLET_BIN_PATH}  "${escapedPayload}" `);
   if (err2) {
     console.error(`Failed to sign_tx transfer SOL ${err2}`);
@@ -1139,7 +1148,7 @@ async function transfersui(password, tokenType, fromAddress, toAddress, amount, 
 
   const signature = Buffer.from(obj.signature, 'hex').toString('base64');
 
-  const txHash = await sendSuiTransaction(txString, signature);
+  const txHash = await sui.sendSuiTransaction(txString, signature);
 
   console.error(`txHash broadcastTronTransaction: ${txHash}`);
   if (!txHash) {
