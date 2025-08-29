@@ -5,7 +5,7 @@ const { z } = require('zod');
 const { serverDescription } = require('./instructions');
 const { loadAllDb } = require('./deeperWallet/sqlite3.js');
 const to = require('await-to-js').default;
-const { getBalance, getContractBalance, getContractMeta, transferToken, transferContractToken,addAccount, importHdStore, } = require('./deeperWallet');
+const { deriveAccountList,getBalance, getContractBalance, getContractMeta, transferToken, transferContractToken, addAccount, importHdStore, } = require('./deeperWallet');
 const fs = require('fs');
 const path = require('path');
 const dotenv = require('dotenv');
@@ -16,60 +16,73 @@ const NetworkDescribe =
     "On non-mainnet, set as <MAINNET>-<TESTNET>. " +
     "Example: ETHEREUM-SEPOLIA, POLYGON-MUMBAI.";
 
+// Helper function to check if wallet files exist
+function hasExistingWallet() {
+    const walletDir = path.join(os.homedir(), '.deeperWallet');
+    if (!fs.existsSync(walletDir)) return false;
+
+    const jsonFiles = fs.readdirSync(walletDir).filter(f => f.endsWith('.json'));
+    return jsonFiles.some(file => {
+        try {
+            const filePath = path.join(walletDir, file);
+            const data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+            return data.id || data.version;
+        } catch {
+            return false;
+        }
+    });
+}
+
+// Helper function to get mnemonic from environment
+function getMnemonicFromEnv() {
+    const envPath = path.resolve(__dirname, '.env');
+    if (fs.existsSync(envPath)) {
+        dotenv.config({ path: envPath, quiet: true });
+        return process.env.MNEMONIC;
+    }
+    console.warn('.env file not found in current directory');
+    return null;
+}
+
+// Helper function to initialize wallet with mnemonic
+async function initializeWallet(mnemonic) {
+    const res = await importHdStore(mnemonic, '', '', 'deeperWallet', true, 'MNEMONIC');
+    if (!res) {
+        console.error('Failed to import mnemonic and create wallet file.');
+        return false;
+    }
+    console.log(`Mnemonic imported and wallet file created successfully ${JSON.stringify(res)}.`);
+
+    const addRes = await addAccount('', ['ETHEREUM', 'SOLANA', 'TRON', 'SUI', 'BITCOIN']);
+    if (!addRes) {
+        console.error('Failed to add default account.');
+        return false;
+    }
+    console.warn(`Default account added successfully ${JSON.stringify(addRes)}.`);
+    return true;
+}
+
 async function main() {
     // Parse command line for "-m mnemonic"
-    let mnemonic = null;
-    let needImportMnemonic = true;
     const mIndex = process.argv.indexOf('-m');
-    if (mIndex !== -1 && process.argv[mIndex + 1]) {
-        mnemonic = process.argv[mIndex + 1];
-    } else {
-        // Check for json files in ~/.deeperWallet
-        const walletDir = path.join(os.homedir(), '.deeperWallet');
-        if (fs.existsSync(walletDir)) {
-            const files = fs.readdirSync(walletDir).filter(f => f.endsWith('.json'));
-            for (const file of files) {
-                const filePath = path.join(walletDir, file);
-                try {
-                    const data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-                    if (data.id || data.version) {
-                        needImportMnemonic = false;
-                        break;
-                    }
-                } catch (e) {
-                    // Ignore parse errors
-                }
-            }
-        }
-        if (needImportMnemonic || !mnemonic) {
-            const envPath = path.resolve(__dirname, '.env');
-            if (fs.existsSync(envPath)) {
-                dotenv.config({ path: envPath,quiet:true });
-            } else {
-                console.warn('.env file not found in current directory');
-            }
-            mnemonic = process.env.MNEMONIC;
-            if (!mnemonic) {
-                console.warn('MNEMONIC not found in .env file');
-                return;
-            }
+    let mnemonic = (mIndex !== -1 && process.argv[mIndex + 1]) ? process.argv[mIndex + 1] : null;
+
+    // Check if wallet already exists
+    const needImportMnemonic = !hasExistingWallet();
+
+    // Get mnemonic from environment if not provided via command line and import is needed
+    if (!mnemonic && needImportMnemonic) {
+        mnemonic = getMnemonicFromEnv();
+        if (!mnemonic) {
+            console.warn('MNEMONIC not found in .env file');
+            return;
         }
     }
 
+    // Initialize wallet if needed
     if (needImportMnemonic && mnemonic) {
-        const res = await importHdStore(mnemonic, '', '', 'deeperWallet', true, 'MNEMONIC');
-        if (!res) {
-            console.error('Failed to import mnemonic and create wallet file.');
-            return;
-        }
-        console.log(`Mnemonic imported and wallet file created successfully ${JSON.stringify(res)}.`);
-        
-        const addRes = await addAccount('',['ETHEREUM', 'SOLANA', 'TRON','SUI','BITCOIN']);
-        if (!addRes) {
-            console.error('Failed to add default account.');
-            return;
-        }
-        console.warn(`Default account added successfully ${JSON.stringify(addRes)}.`);
+        const success = await initializeWallet(mnemonic);
+        if (!success) return;
     }
 
     //loadAllDb();
@@ -242,6 +255,33 @@ async function main() {
         }
     );
 
+    server.tool(
+        'deriveAccountList',
+        'Get the list of derived accounts from the wallet',
+        {},
+        async () => {
+            const [err, accountList] = await to(deriveAccountList());
+            if (err) {
+                return {
+                    content: [
+                        {
+                            type: 'text',
+                            text: `Failed to derive account list: ${err.message || err}`,
+                        }
+                    ],
+                };
+            }
+            return {
+                content: [
+                    {
+                        type: 'text',
+                        text: `Account list: ${JSON.stringify(accountList)}`,
+                    }
+                ],
+            };
+        }
+    );
+
     const transport = new StdioServerTransport();
     await server.connect(transport);
 }
@@ -279,24 +319,32 @@ async function main2() {
     // }
     // console.warn(`Transfer Contract Token Result: ${JSON.stringify(transferResult2)}`);
 
-    const [err6,transferResult3] = await to(transferToken('', '0xe9db2b843b35e4904eb1029f704821cc5cb3ff0e9ea0cf6c892557256cb13969', '0x0feb54a725aa357ff2f5bc6bb023c05b310285bd861275a30521f339a434ebb3', '10000000','SUI-TESTNET'));
-    if (err6) {
-        console.error('Error transferring token:', err6);
-        return;
-    }
-    console.warn(`Transfer Result: ${ JSON.stringify(transferResult3)}`);
+    // const [err6, transferResult3] = await to(transferToken('', '0xe9db2b843b35e4904eb1029f704821cc5cb3ff0e9ea0cf6c892557256cb13969', '0x0feb54a725aa357ff2f5bc6bb023c05b310285bd861275a30521f339a434ebb3', '10000000', 'SUI-TESTNET'));
+    // if (err6) {
+    //     console.error('Error transferring token:', err6);
+    //     return;
+    // }
+    // console.warn(`Transfer Result: ${JSON.stringify(transferResult3)}`);
 
-    const [err7,transferResult4] = await to(transferContractToken('', 
-        '0xe9db2b843b35e4904eb1029f704821cc5cb3ff0e9ea0cf6c892557256cb13969',
-        '0x8190b041122eb492bf63cb464476bd68c6b7e570a4079645a8b28732b6197a82::wal::WAL', 
-        '0x0feb54a725aa357ff2f5bc6bb023c05b310285bd861275a30521f339a434ebb3', 
-        '10000000',
-        'SUI-TESTNET'));
-    if (err7) {
-        console.error('Error transferring contract token:', err7);
+    // const [err7, transferResult4] = await to(transferContractToken('',
+    //     '0xe9db2b843b35e4904eb1029f704821cc5cb3ff0e9ea0cf6c892557256cb13969',
+    //     '0x8190b041122eb492bf63cb464476bd68c6b7e570a4079645a8b28732b6197a82::wal::WAL',
+    //     '0x0feb54a725aa357ff2f5bc6bb023c05b310285bd861275a30521f339a434ebb3',
+    //     '10000000',
+    //     'SUI-TESTNET'));
+    // if (err7) {
+    //     console.error('Error transferring contract token:', err7);
+    //     return;
+    // }
+    // console.warn(`Transfer Contract Token Result: ${JSON.stringify(transferResult4)}`);
+
+    const [err8, accountList] = await to(deriveAccountList());
+    if (err8) {
+        console.error('Error deriving account list:', err8);
         return;
     }
-    console.warn(`Transfer Contract Token Result: ${JSON.stringify(transferResult4)}`);
+    console.warn(`Account List: ${JSON.stringify(accountList)}`);
+    
 }
 
 main().catch((error) => {

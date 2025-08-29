@@ -371,6 +371,8 @@ exports.exportKeystore = async () => {
   return stdout;
 };
 
+
+
 exports.renameAccount = async (index, newName) => {
   const success = await db.renameAccount(index, newName);
   if (!success) {
@@ -1362,4 +1364,50 @@ async function setNameSource(name, source, identifier) {
 async function pruneOldDbRecord() {
   return db.deleteOldAddressToken();
 }
+
+/**
+ * 从钱包账户数据中提取 chain_type 和 address 字段列表
+ * @param {string} walletOutput - DEEPER_WALLET_BIN_PATH 命令的输出字符串
+ * @returns {Array<{chain_type: string, address: string}>|null} 提取的账户列表或null（如果解析失败）
+ */
+const extractAccountList = (walletOutput) => {
+  try {
+    const data = JSON.parse(walletOutput);
+
+    if (!data.accounts || !Array.isArray(data.accounts)) {
+      console.error('Invalid wallet output: missing or invalid accounts array');
+      return null;
+    }
+
+    return data.accounts.map(account => ({
+      chain_type: account.chain_type,
+      address: account.address
+    }));
+  } catch (error) {
+    console.error('Failed to parse wallet output:', error);
+    return null;
+  }
+};
+
+/**
+ * 获取钱包中所有账户的 chain_type 和 address 列表
+ * @returns {Promise<Array<{chain_type: string, address: string}>|null>} 账户列表或null（如果获取失败）
+ */
+exports.deriveAccountList = async () => {
+  const payload = {
+    method: 'keystore_common_accounts',
+    param: {}
+  };
+
+  const jsonPayload = JSON.stringify(payload);
+  const escapedPayload = jsonPayload.replace(/"/g, '\\"');
+
+  const [error, stdout] = await commonUtil.exec(`${DEEPER_WALLET_BIN_PATH} "${escapedPayload}"`);
+  if (error) {
+    console.error('Failed to get account list:', error);
+    return null;
+  }
+
+  return extractAccountList(stdout);
+};
 
