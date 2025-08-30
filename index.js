@@ -5,7 +5,7 @@ const { z } = require('zod');
 const { serverDescription } = require('./instructions');
 const { loadAllDb } = require('./deeperWallet/sqlite3.js');
 const to = require('await-to-js').default;
-const { deriveAccountList,getBalance, getContractBalance, getContractMeta, transferToken, transferContractToken, addAccount, importHdStore, } = require('./deeperWallet');
+const { deriveAccountList, getBalance, getContractBalance, getContractMeta, transferToken, transferContractToken, addAccount, importHdStore, } = require('./deeperWallet');
 const fs = require('fs');
 const path = require('path');
 const dotenv = require('dotenv');
@@ -186,25 +186,88 @@ async function main() {
         }
     );
 
+    // server.tool(
+    //     'transferToken',
+    //     'Transfer tokens from one address to another on a specified blockchain network',
+    //     {
+    //         fromAddress: z.string().describe('The sender address'),
+    //         toAddress: z.string().describe('The recipient address'),
+    //         amount: z.string().describe('The amount to transfer (as a string, in the smallest unit)'),
+    //         network: z.string().describe(NetworkDescribe),
+    //     },
+    //     async ({ fromAddress, toAddress, amount, network }) => {
+    //         const [err, result] = await to(
+    //             transferToken('', fromAddress, toAddress, amount, network)
+    //         );
+    //         if (err || !result) {
+    //             return {
+    //                 content: [
+    //                     {
+    //                         type: 'text',
+    //                         text: `Failed to transfer tokens: ${err.message || err}`,
+    //                     }
+    //                 ],
+    //             };
+    //         }
+    //         return {
+    //             content: [
+    //                 {
+    //                     type: 'text',
+    //                     text: `Transfer successful : ${JSON.stringify(result)}`,
+    //                 }
+    //             ],
+    //         };
+    //     }
+    // );
+
     server.tool(
-        'transferToken',
-        'Transfer tokens from one address to another on a specified blockchain network',
+        'transferTokenFromMyWallet',
+        'Transfer tokens to other addresses from my wallet address on a specified blockchain network',
         {
-            fromAddress: z.string().describe('The sender address'),
             toAddress: z.string().describe('The recipient address'),
             amount: z.string().describe('The amount to transfer (as a string, in the smallest unit)'),
             network: z.string().describe(NetworkDescribe),
         },
-        async ({ fromAddress, toAddress, amount, network }) => {
-            const [err, result] = await to(
-                transferToken('', fromAddress, toAddress, amount, network)
-            );
-            if (err || !result) {
+        async ({ toAddress, amount, network }) => {
+            const [err, accountList] = await to(deriveAccountList());
+            if (err) {
                 return {
                     content: [
                         {
                             type: 'text',
-                            text: `Failed to transfer tokens: ${err.message || err}`,
+                            text: `Failed to derive account list: ${err.message || err}`,
+                        }
+                    ],
+                };
+            }
+            // Filter accounts by network
+            const filteredAccounts = accountList.filter(account =>
+                account.chain_type && account.chain_type.toUpperCase() === network.split('-')[0].toUpperCase()
+            );
+
+            if (filteredAccounts.length === 0) {
+                return {
+                    content: [
+                        {
+                            type: 'text',
+                            text: `No accounts found for network: ${network}`,
+                        }
+                    ],
+                };
+            }
+
+            // Use the first matching account as fromAddress
+            const fromAddress = filteredAccounts[0].address;
+
+            const [transferErr, result] = await to(
+                transferToken('', fromAddress, toAddress, amount, network)
+            );
+            if (transferErr || !result) {
+                return {
+                    content: [
+                        {
+                            type: 'text',
+                            text: `Failed to transfer tokens: ${transferErr && transferErr.message ? transferErr.message : transferErr}`,
                         }
                     ],
                 };
@@ -213,33 +276,96 @@ async function main() {
                 content: [
                     {
                         type: 'text',
-                        text: `Transfer successful : ${JSON.stringify(result)}`,
+                        text: `Transfer successful from ${fromAddress}: ${JSON.stringify(result)}`,
                     }
                 ],
             };
-        }
-    );
+        });
+
+    // server.tool(
+    //     'transferContractToken',
+    //     'Transfer contract tokens (e.g., ERC20) from one address to another on a specified blockchain network',
+    //     {
+    //         fromAddress: z.string().describe('The sender address'),
+    //         toAddress: z.string().describe('The recipient address'),
+    //         contract: z.string().describe('The token contract address (ERC20/SPL/etc)'),
+    //         amount: z.string().describe('The amount to transfer (as a string, in the smallest unit)'),
+    //         network: z.string().describe(NetworkDescribe),
+    //     },
+    //     async ({ fromAddress, toAddress, contract, amount, network }) => {
+    //         const [err, result] = await to(
+    //             transferContractToken('', fromAddress, toAddress, contract, amount, network)
+    //         );
+    //         if (err || !result) {
+    //             return {
+    //                 content: [
+    //                     {
+    //                         type: 'text',
+    //                         text: `Failed to transfer contract tokens: ${err && err.message ? err.message : err}`,
+    //                     }
+    //                 ],
+    //             };
+    //         }
+    //         return {
+    //             content: [
+    //                 {
+    //                     type: 'text',
+    //                     text: `Contract token transfer successful: ${JSON.stringify(result)}`,
+    //                 }
+    //             ],
+    //         };
+    //     }
+    // );
 
     server.tool(
-        'transferContractToken',
-        'Transfer contract tokens (e.g., ERC20) from one address to another on a specified blockchain network',
+        'transferContractTokenFromMyWallet',
+        'Transfer contract tokens (e.g., ERC20) to other addresses from my wallet address on a specified blockchain network',
         {
-            fromAddress: z.string().describe('The sender address'),
             toAddress: z.string().describe('The recipient address'),
             contract: z.string().describe('The token contract address (ERC20/SPL/etc)'),
             amount: z.string().describe('The amount to transfer (as a string, in the smallest unit)'),
             network: z.string().describe(NetworkDescribe),
         },
-        async ({ fromAddress, toAddress, contract, amount, network }) => {
-            const [err, result] = await to(
-                transferContractToken('', fromAddress, toAddress, contract, amount, network)
-            );
-            if (err || !result) {
+        async ({ toAddress, contract, amount, network }) => {
+            const [err, accountList] = await to(deriveAccountList());
+            if (err) {
                 return {
                     content: [
                         {
                             type: 'text',
-                            text: `Failed to transfer contract tokens: ${err && err.message ? err.message : err}`,
+                            text: `Failed to derive account list: ${err.message || err}`,
+                        }
+                    ],
+                };
+            }
+            // Filter accounts by network
+            const filteredAccounts = accountList.filter(account =>
+                account.chain_type && account.chain_type.toUpperCase() === network.split('-')[0].toUpperCase()
+            );
+
+            if (filteredAccounts.length === 0) {
+                return {
+                    content: [
+                        {
+                            type: 'text',
+                            text: `No accounts found for network: ${network}`,
+                        }
+                    ],
+                };
+            }
+
+            // Use the first matching account as fromAddress
+            const fromAddress = filteredAccounts[0].address;
+
+            const [transferErr, result] = await to(
+                transferContractToken('', fromAddress, contract, toAddress, amount, network)
+            );
+            if (transferErr || !result) {
+                return {
+                    content: [
+                        {
+                            type: 'text',
+                            text: `Failed to transfer contract tokens: ${transferErr && transferErr.message ? transferErr.message : transferErr}`,
                         }
                     ],
                 };
@@ -248,7 +374,7 @@ async function main() {
                 content: [
                     {
                         type: 'text',
-                        text: `Contract token transfer successful: ${JSON.stringify(result)}`,
+                        text: `Contract token transfer successful from ${fromAddress}: ${JSON.stringify(result)}`,
                     }
                 ],
             };
@@ -256,8 +382,8 @@ async function main() {
     );
 
     server.tool(
-        'deriveAccountList',
-        'Get the list of derived accounts from the wallet',
+        'accountList',
+        'Get the list of accounts from my wallet',
         {},
         async () => {
             const [err, accountList] = await to(deriveAccountList());
@@ -344,7 +470,7 @@ async function main2() {
         return;
     }
     console.warn(`Account List: ${JSON.stringify(accountList)}`);
-    
+
 }
 
 main().catch((error) => {
