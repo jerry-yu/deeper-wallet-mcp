@@ -6,6 +6,7 @@ const { serverDescription } = require('./instructions');
 const { loadAllDb } = require('./deeperWallet/sqlite3.js');
 const to = require('await-to-js').default;
 const { deriveAccountList, getBalance, getContractBalance, getContractMeta, transferToken, transferContractToken, addAccount, importHdStore, } = require('./deeperWallet');
+const {calculateV2Price, getSwapQuote, executeSwap, getPoolInfo, getTokenPrice, getAllPools, isNetworkSupported } = require('./deeperWallet/uniswap');
 const fs = require('fs');
 const path = require('path');
 const dotenv = require('dotenv');
@@ -408,6 +409,337 @@ async function main() {
         }
     );
 
+    // Uniswap Tools
+    server.tool(
+        'getUniswapSwapQuote',
+        'Get a swap quote from Uniswap for trading one token for another',
+        {
+            network: z.string().describe(NetworkDescribe + ' Must be Ethereum-based network with Uniswap support.'),
+            tokenIn: z.string().describe('The input token contract address (use "ETH" for native ETH)'),
+            tokenOut: z.string().describe('The output token contract address (use "ETH" for native ETH)'),
+            amountIn: z.string().describe('The amount of input tokens to swap (in wei/smallest unit)'),
+            slippage: z.number().optional().describe('Slippage tolerance percentage (default: 0.5, max: 50)')
+        },
+        async ({ network, tokenIn, tokenOut, amountIn, slippage = 0.5 }) => {
+            // Check if network supports Uniswap
+            if (!isNetworkSupported(network)) {
+                return {
+                    content: [
+                        {
+                            type: 'text',
+                            text: `Network ${network} does not support Uniswap integration`,
+                        }
+                    ],
+                };
+            }
+
+            const [err, quote] = await to(getSwapQuote(network, tokenIn, tokenOut, amountIn, slippage));
+            if (err || !quote) {
+                return {
+                    content: [
+                        {
+                            type: 'text',
+                            text: `Failed to get swap quote: ${err?.message || 'Unknown error'}`,
+                        }
+                    ],
+                };
+            }
+
+            if (quote.error) {
+                return {
+                    content: [
+                        {
+                            type: 'text',
+                            text: `Swap quote error: ${quote.message}`,
+                        }
+                    ],
+                };
+            }
+
+            return {
+                content: [
+                    {
+                        type: 'text',
+                        text: `Uniswap swap quote:\n${JSON.stringify(quote, null, 2)}`,
+                    }
+                ],
+            };
+        }
+    );
+
+    server.tool(
+        'executeUniswapSwap',
+        'Execute a token swap on Uniswap using wallet addresses',
+        {
+            network: z.string().describe(NetworkDescribe + ' Must be Ethereum-based network with Uniswap support.'),
+            tokenIn: z.string().describe('The input token contract address (use "ETH" for native ETH)'),
+            tokenOut: z.string().describe('The output token contract address (use "ETH" for native ETH)'),
+            amountIn: z.string().describe('The amount of input tokens to swap (in wei/smallest unit)'),
+            amountOutMin: z.string().describe('The minimum amount of output tokens to receive (in wei/smallest unit)'),
+            slippage: z.number().optional().describe('Slippage tolerance percentage (default: 0.5, max: 50)'),
+            deadline: z.number().optional().describe('Transaction deadline in minutes from now (default: 20)')
+        },
+        async ({ network, tokenIn, tokenOut, amountIn, amountOutMin, slippage = 0.5, deadline = 20 }) => {
+            // Check if network supports Uniswap
+            if (!isNetworkSupported(network)) {
+                return {
+                    content: [
+                        {
+                            type: 'text',
+                            text: `Network ${network} does not support Uniswap integration`,
+                        }
+                    ],
+                };
+            }
+
+            // Get wallet accounts for the network
+            const [accountErr, accountList] = await to(deriveAccountList());
+            if (accountErr) {
+                return {
+                    content: [
+                        {
+                            type: 'text',
+                            text: `Failed to derive account list: ${accountErr.message || accountErr}`,
+                        }
+                    ],
+                };
+            }
+
+            // Filter accounts by network
+            const filteredAccounts = accountList.filter(account =>
+                account.chain_type && account.chain_type.toUpperCase() === network.split('-')[0].toUpperCase()
+            );
+
+            if (filteredAccounts.length === 0) {
+                return {
+                    content: [
+                        {
+                            type: 'text',
+                            text: `No accounts found for network: ${network}`,
+                        }
+                    ],
+                };
+            }
+
+            // Use the first matching account as fromAddress
+            const fromAddress = filteredAccounts[0].address;
+
+            // Calculate deadline timestamp
+            const deadlineTimestamp = Math.floor(Date.now() / 1000) + (deadline * 60);
+
+            const [err, result] = await to(executeSwap(
+                '', // password - empty string as per existing pattern
+                fromAddress,
+                tokenIn,
+                tokenOut,
+                amountIn,
+                amountOutMin,
+                network,
+                {
+                    slippage,
+                    deadline: deadlineTimestamp
+                }
+            ));
+
+            if (err || !result) {
+                return {
+                    content: [
+                        {
+                            type: 'text',
+                            text: `Failed to execute swap: ${err?.message || 'Unknown error'}`,
+                        }
+                    ],
+                };
+            }
+
+            if (result.error) {
+                return {
+                    content: [
+                        {
+                            type: 'text',
+                            text: `Swap execution error: ${result.message}`,
+                        }
+                    ],
+                };
+            }
+
+            return {
+                content: [
+                    {
+                        type: 'text',
+                        text: `Uniswap swap executed successfully from ${fromAddress}:\n${JSON.stringify(result, null, 2)}`,
+                    }
+                ],
+            };
+        }
+    );
+
+    server.tool(
+        'getUniswapPoolInfo',
+        'Get information about a Uniswap liquidity pool for a token pair',
+        {
+            network: z.string().describe(NetworkDescribe + ' Must be Ethereum-based network with Uniswap support.'),
+            tokenA: z.string().describe('First token contract address (use "ETH" for native ETH)'),
+            tokenB: z.string().describe('Second token contract address (use "ETH" for native ETH)'),
+            feeLevel: z.string().optional().describe('Fee level for V3 pools: "LOW" (0.05%), "MEDIUM" (0.3%), "HIGH" (1%)')
+        },
+        async ({ network, tokenA, tokenB, feeLevel }) => {
+            // Check if network supports Uniswap
+            if (!isNetworkSupported(network)) {
+                return {
+                    content: [
+                        {
+                            type: 'text',
+                            text: `Network ${network} does not support Uniswap integration`,
+                        }
+                    ],
+                };
+            }
+
+            const [err, poolInfo] = await to(getPoolInfo(network, tokenA, tokenB, feeLevel));
+            if (err || !poolInfo) {
+                return {
+                    content: [
+                        {
+                            type: 'text',
+                            text: `Failed to get pool info: ${err?.message || 'Unknown error'}`,
+                        }
+                    ],
+                };
+            }
+
+            if (poolInfo.error) {
+                return {
+                    content: [
+                        {
+                            type: 'text',
+                            text: `Pool info error: ${poolInfo.message}`,
+                        }
+                    ],
+                };
+            }
+
+            return {
+                content: [
+                    {
+                        type: 'text',
+                        text: `Uniswap pool information:\n${JSON.stringify(poolInfo, null, 2)}`,
+                    }
+                ],
+            };
+        }
+    );
+
+    server.tool(
+        'getUniswapTokenPrice',
+        'Get the current price of a token from Uniswap pools',
+        {
+            network: z.string().describe(NetworkDescribe + ' Must be Ethereum-based network with Uniswap support.'),
+            tokenAddress: z.string().describe('Token contract address to get price for (use "ETH" for native ETH)'),
+            baseToken: z.string().optional().describe('Base token for price quote (default: USDC, use "ETH" for ETH price)')
+        },
+        async ({ network, tokenAddress, baseToken }) => {
+            // Check if network supports Uniswap
+            if (!isNetworkSupported(network)) {
+                return {
+                    content: [
+                        {
+                            type: 'text',
+                            text: `Network ${network} does not support Uniswap integration`,
+                        }
+                    ],
+                };
+            }
+
+            const [err, priceInfo] = await to(getTokenPrice(network, tokenAddress, baseToken));
+            if (err || !priceInfo) {
+                return {
+                    content: [
+                        {
+                            type: 'text',
+                            text: `Failed to get token price: ${err?.message || 'Unknown error'}`,
+                        }
+                    ],
+                };
+            }
+
+            if (priceInfo.error) {
+                return {
+                    content: [
+                        {
+                            type: 'text',
+                            text: `Token price error: ${priceInfo.message}`,
+                        }
+                    ],
+                };
+            }
+
+            return {
+                content: [
+                    {
+                        type: 'text',
+                        text: `Token price information:\n${JSON.stringify(priceInfo, null, 2)}`,
+                    }
+                ],
+            };
+        }
+    );
+
+    server.tool(
+        'getAllUniswapPools',
+        'Get all available Uniswap pools (V2 and V3) for a token pair',
+        {
+            network: z.string().describe(NetworkDescribe + ' Must be Ethereum-based network with Uniswap support.'),
+            tokenA: z.string().describe('First token contract address (use "ETH" for native ETH)'),
+            tokenB: z.string().describe('Second token contract address (use "ETH" for native ETH)')
+        },
+        async ({ network, tokenA, tokenB }) => {
+            // Check if network supports Uniswap
+            if (!isNetworkSupported(network)) {
+                return {
+                    content: [
+                        {
+                            type: 'text',
+                            text: `Network ${network} does not support Uniswap integration`,
+                        }
+                    ],
+                };
+            }
+
+            const [err, pools] = await to(getAllPools(network, tokenA, tokenB));
+            if (err || !pools) {
+                return {
+                    content: [
+                        {
+                            type: 'text',
+                            text: `Failed to get pools: ${err?.message || 'Unknown error'}`,
+                        }
+                    ],
+                };
+            }
+
+            if (pools.error) {
+                return {
+                    content: [
+                        {
+                            type: 'text',
+                            text: `Get pools error: ${pools.message}`,
+                        }
+                    ],
+                };
+            }
+
+            return {
+                content: [
+                    {
+                        type: 'text',
+                        text: `All Uniswap pools for token pair:\n${JSON.stringify(pools, null, 2)}`,
+                    }
+                ],
+            };
+        }
+    );
+
     const transport = new StdioServerTransport();
     await server.connect(transport);
 }
@@ -464,16 +796,51 @@ async function main2() {
     // }
     // console.warn(`Transfer Contract Token Result: ${JSON.stringify(transferResult4)}`);
 
-    const [err8, accountList] = await to(deriveAccountList());
-    if (err8) {
-        console.error('Error deriving account list:', err8);
+    // const [err8, accountList] = await to(deriveAccountList());
+    // if (err8) {
+    //     console.error('Error deriving account list:', err8);
+    //     return;
+    // }
+    // console.warn(`Account List: ${JSON.stringify(accountList)}`);
+
+    // const [err9, pools] = await to(getAllPools('ETHEREUM-SEPOLIA', '0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14', '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238'));
+    // if (err9) {
+    //     console.error('Error getting all pools:', err9);
+    //     return;
+    // }
+    // console.warn(`All Pools: ${JSON.stringify(pools)}`);
+
+    
+
+    //0x2260fac5e5542a773aa44fbcfedf7c193bc2c599
+    // const [err10, priceInfo] = await to(getTokenPrice('ETHEREUM', '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2', '0xdAC17F958D2ee523a2206206994597C13D831ec7'));
+    // if (err10) {
+    //     console.error('Error getting token price:', err10);
+    //     return;
+    // }
+    // console.warn(`Token Price Info: ${JSON.stringify(priceInfo)}`);
+
+    const [err11, result] = await to(executeSwap(
+                '', // password - empty string as per existing pattern
+                '0x90dF5A3EDE13Ee1D090573460e13B0BFD8aa9708', // fromAddress
+                "0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14",
+                '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238',
+                10000000000000000,
+                2,
+                'ETHEREUM-SEPOLIA',
+               
+            ));
+            
+    if (err11) {
+        console.error('Error executing swap:', err11);
         return;
     }
-    console.warn(`Account List: ${JSON.stringify(accountList)}`);
+    console.warn(`Swap Result: ${JSON.stringify(result)}`);
+
 
 }
 
-main().catch((error) => {
+main2().catch((error) => {
     console.error('Error starting server:', error);
     process.exit(1);
 });

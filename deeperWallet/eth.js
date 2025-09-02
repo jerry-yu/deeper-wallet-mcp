@@ -83,7 +83,7 @@ function getRpcUrl(network) {
 }
 
 async function sendRpcRequest(rpcUrl, method, params = []) {
-  console.warn(`sendRpcRequest: ${rpcUrl} ${method} ${JSON.stringify(params)}`);
+  //console.warn(`sendRpcRequest: ${rpcUrl} ${method} ${JSON.stringify(params)}`);
   if (!rpcUrl) {
     return null;
   }
@@ -107,7 +107,7 @@ async function sendRpcRequest(rpcUrl, method, params = []) {
     console.error(`Failed to sendRpcRequest: ${rpcUrl} ${method} ${error}`);
     return null;
   }
-  console.warn(`RPC Response: ${JSON.stringify(response.data)}`);
+  //console.warn(`RPC Response: ${JSON.stringify(response.data)}`);
   return response.data.result ? response.data.result : null;
 }
 
@@ -119,12 +119,12 @@ async function estimate_gas(network, fromAddress, toAddress, amount, data) {
   if (data) {
     body.data = data;
   }
-  console.warn(`estimate_gas body: ${JSON.stringify(body)}`);
+  //console.warn(`estimate_gas body: ${JSON.stringify(body)}`);
   const res = await sendRpcRequest(getRpcUrl(network), 'eth_estimateGas', [body]);
   if (!res) {
     return null;
   }
-   console.warn(`estimate_gas body: ${JSON.stringify(res)}`);
+   //console.warn(`estimate_gas body: ${JSON.stringify(res)}`);
   const gas = convertHexToDecimalString(res);
   return parseInt(gas);
 }
@@ -214,7 +214,6 @@ async function erc20Symbol(network, contractAddress) {
   if (!res) {
     return null;
   }
-  console.warn('erc20Symbol res:', res);
   return hexToString(res);
 }
 

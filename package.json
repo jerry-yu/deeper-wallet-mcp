@@ -4,7 +4,12 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "jest",
+    "test:uniswap": "jest tests/uniswap.test.js",
+    "test:uniswap:integration": "jest tests/uniswap.integration.test.js",
+    "test:uniswap:e2e": "jest tests/uniswap.e2e.test.js",
+    "test:uniswap:comprehensive": "node tests/run-comprehensive-tests.js",
+    "test:uniswap:all": "jest tests/uniswap*.test.js --verbose"
   },
   "keywords": [],
   "author": "",
@@ -16,9 +21,13 @@
     "@solana/web3.js": "^1.98.4",
     "await-to-js": "^3.0.0",
     "axios": "^1.11.0",
+    "decimal.js": "^10.6.0",
     "dotenv": "^17.2.1",
     "node-cache": "^5.1.2",
     "sqlite3": "^5.1.7",
     "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "jest": "^30.1.2"
   }
 }
