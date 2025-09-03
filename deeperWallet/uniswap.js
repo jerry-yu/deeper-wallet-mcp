@@ -638,6 +638,8 @@ async function sendRpcRequest(rpcUrl, method, params = []) {
     )
   );
 
+  console.warn(`========= sendRpcRequest: ${rpcUrl} ${method} ${JSON.stringify(params)}`);
+
   if (error) {
     console.error(`Failed to sendRpcRequest: ${rpcUrl} ${method}`, error.message);
     return null;
@@ -1094,8 +1096,10 @@ async function getTokenAllowance(network, tokenAddress, ownerAddress, spenderAdd
  */
 async function checkTokenApproval(network, tokenAddress, ownerAddress, spenderAddress, requiredAmount) {
   try {
+    console.warn("----",network, tokenAddress, ownerAddress, spenderAddress, requiredAmount);
     const currentAllowance = await getTokenAllowance(network, tokenAddress, ownerAddress, spenderAddress);
 
+    console.warn("----",currentAllowance);
     if (currentAllowance === null) {
       return {
         isApproved: false,
@@ -2600,7 +2604,7 @@ function calculateV3Price(sqrtPriceX96, decimals0 = 18, decimals1 = 18) {
       decimals1
     };
   } catch (error) {
-    console.error('Error calculating V2 price:', error.message);
+    console.error('Error calculating V3 price:', error.message);
     throw error;
   }
 }
@@ -2804,6 +2808,7 @@ async function getSwapQuote(network, tokenIn, tokenOut, amountIn, slippage = 0.5
           amountOut = calculateV2SwapOutput(reserveIn, reserveOut, amountIn, pool.fee);
           priceImpact = calculatePriceImpact(reserveIn, reserveOut, amountIn, amountOut);
         } else if (pool.version === 'V3') {
+          console.warn("pool info ",pool)
           // For V3, we'll use a simplified calculation based on current price
           // In a full implementation, this would use the tick math and liquidity calculations
           if (!pool.sqrtPriceX96 || BigInt(pool.sqrtPriceX96) <= 0n) {
@@ -2816,11 +2821,12 @@ async function getSwapQuote(network, tokenIn, tokenOut, amountIn, slippage = 0.5
           }
 
           const priceData = calculateV3Price(pool.sqrtPriceX96);
+          console.warn("price data ",priceData);
           const price = isTokenInToken0 ? priceData.price0in1 : priceData.price1in0;
 
           // Simple price-based calculation (not accounting for concentrated liquidity)
-          amountOut = (BigInt(amountIn) * BigInt(price)) / BigInt(10 ** 18);
-          amountOut = amountOut.toString();
+          amountOut = number(amountIn) * number(price);
+          amountOut = amountOut.toFixed(0).toString();
 
           // Apply V3 fee
           const feeAmount = (BigInt(amountOut) * BigInt(pool.fee)) / BigInt(1000000);
@@ -3289,6 +3295,7 @@ async function executeSwap(password, fromAddress, tokenIn, tokenOut, amountIn, a
     const eth = require('./eth');
     const commonUtil = require('./utils');
 
+    console.warn("111");
     // Validate inputs
     const validation = validateSwapParams({ tokenIn, tokenOut, amountIn, network });
     if (!validation.isValid) {
@@ -3307,6 +3314,7 @@ async function executeSwap(password, fromAddress, tokenIn, tokenOut, amountIn, a
       throw new Error(`Unsupported network: ${network}`);
     }
 
+    console.warn("3333");
     // Set default options
     const {
       slippage = 0.5,
@@ -3319,7 +3327,7 @@ async function executeSwap(password, fromAddress, tokenIn, tokenOut, amountIn, a
     if (!isValidDeadline(deadline)) {
       throw new Error('Invalid deadline');
     }
-
+ console.warn("444");
     // Get optimal route if version not specified
     let routeInfo;
     if (version) {
@@ -3337,7 +3345,7 @@ async function executeSwap(password, fromAddress, tokenIn, tokenOut, amountIn, a
         throw new Error('No available swap route found');
       }
     }
-
+ console.warn("555");
     // Check and handle token approval
     const approvalResult = await handleTokenApproval(
       password,
@@ -3351,7 +3359,7 @@ async function executeSwap(password, fromAddress, tokenIn, tokenOut, amountIn, a
     if (!approvalResult.success) {
       throw new Error(`Token approval failed: ${approvalResult.error}`);
     }
-
+ console.warn("666");
     // Generate transaction data based on version
     let callData;
     if (routeInfo.version === 'V2') {
@@ -3361,7 +3369,7 @@ async function executeSwap(password, fromAddress, tokenIn, tokenOut, amountIn, a
     } else {
       throw new Error('Unknown Uniswap version');
     }
-
+ console.warn("222");
     // Get transaction essentials (nonce, gas price)
     const txEssentials = await eth.get_tx_essential_elem(network, fromAddress);
     if (!txEssentials) {
