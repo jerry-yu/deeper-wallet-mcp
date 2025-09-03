@@ -5,6 +5,8 @@ const { convertHexToDecimalString, hexToString, hexToDecimal } = require('./util
 
 const TRANSFER_SELECTOR = 'a9059cbb';
 const BALANCEOF_SELECTOR = '0x70a08231';
+const ALLOWANCE_SELECTOR = '0xdd62ed3e';
+const APPROVE_SELECTOR = '0x095ea7b3';
 const NAME_SELECTOR = '0x06fdde03';
 const SYMBOL_SELECTOR = '0x95d89b41';
 const DECIMALS_SELECTOR = '0x313ce567';
@@ -17,7 +19,7 @@ const rpcUrls = {
   ],
   'ETHEREUM': [
     'https://eth-mainnet.public.blastapi.io',
-    'https://eth.llamarpc.com',
+    'https://1rpc.io/eth',
     'https://ethereum-rpc.publicnode.com',
   ],
   'ARBITRUM': [
@@ -33,7 +35,7 @@ const rpcUrls = {
 
   'OPTIMISM': ['https://optimism-rpc.publicnode.com',
     'https://optimism.llamarpc.com',
-    'https://rpc.ankr.com/optimism'],
+    ],
   'OPTIMISM-TESTNET': [
     'https://api.zan.top/opt-sepolia',
     'https://optimism-sepolia-rpc.publicnode.com',
@@ -124,7 +126,7 @@ async function estimate_gas(network, fromAddress, toAddress, amount, data) {
   if (!res) {
     return null;
   }
-   console.warn(`estimate_gas body: ${JSON.stringify(res)}`);
+  console.warn(`estimate_gas body: ${JSON.stringify(res)}`);
   const gas = convertHexToDecimalString(res);
   return parseInt(gas);
 }
@@ -226,12 +228,49 @@ async function erc20Decimals(network, contractAddress) {
   return hexToDecimal(res);
 }
 
+async function erc20Allowance(network, contractAddress, ownerAddress, spenderAddress) {
+  // Prepare the allowance call data
+  let owner = ownerAddress.toLowerCase();
+  owner = owner.startsWith('0x') ? owner.slice(2) : owner;
+  owner = owner.padStart(64, '0');
+
+  let spender = spenderAddress.toLowerCase();
+  spender = spender.startsWith('0x') ? spender.slice(2) : spender;
+  spender = spender.padStart(64, '0');
+
+  const calldata = ALLOWANCE_SELECTOR + owner + spender;
+
+  const res = await sendRpcRequest(getRpcUrl(network), 'eth_call', [
+    {
+      to: contractAddress,
+      data: calldata,
+    },
+    'latest',
+  ]);
+
+  if (!res) {
+    return null;
+  }
+
+  return convertHexToDecimalString(res);
+}
+
 function getTransferCalldata(toAddress, amount) {
   toAddress = toAddress.toLowerCase();
   toAddress = toAddress.startsWith('0x') ? toAddress.slice(2) : toAddress;
   toAddress = toAddress.padStart(64, '0');
   amount = BigInt(amount).toString(16).padStart(64, '0');
   return `${TRANSFER_SELECTOR}${toAddress}${amount}`;
+}
+
+function getApprovalCalldata(spenderAddress, amount) {
+  let spender = spenderAddress.toLowerCase();
+  spender = spender.startsWith('0x') ? spender.slice(2) : spender;
+  spender = spender.padStart(64, '0');
+
+  let amountHex = BigInt(amount).toString(16).padStart(64, '0');
+
+  return `${APPROVE_SELECTOR}${spender}${amountHex}`;
 }
 
 module.exports = {
@@ -245,5 +284,9 @@ module.exports = {
   erc20Name,
   erc20Symbol,
   erc20Decimals,
+  erc20Allowance,
   getTransferCalldata,
+  getApprovalCalldata,
+  sendRpcRequest,
+  getRpcUrl,
 };

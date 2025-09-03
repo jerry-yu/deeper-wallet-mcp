@@ -94,7 +94,7 @@ exports.loadAllDb = async () => {
           logger.error(`Failed to open DB ${path}: ${err}`);
           resolve(null);
         } else {
-          logger.info(`Successfully loaded DB ${path}`);
+          console.warn(`Successfully loaded DB ${path}`);
           resolve(db);
         }
       });
@@ -140,7 +140,7 @@ async function addColumn(db, column) {
   const sql = `ALTER TABLE ${column[0]} ADD COLUMN ${column[1]} ${column[2]}`;
   const success = await exports.runSql(db, sql, []);
   if (success) {
-    logger.info(`Column ${column[1]} added to table ${column[0]}`);
+    console.warn(`Column ${column[1]} added to table ${column[0]}`);
   }
 }
 

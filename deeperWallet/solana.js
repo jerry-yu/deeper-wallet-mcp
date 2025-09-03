@@ -150,7 +150,7 @@ async function getTransferSolMessage(network, sender, receiver, amount) {
 }
 
 async function getTransferSplMessage(network, fromAddress, toAddress, amount, mintAddress) {
-  logger.info(`getTransferSplMessage, ${mintAddress} ${fromAddress} ${toAddress} ${amount}`);
+  console.warn(`getTransferSplMessage, ${mintAddress} ${fromAddress} ${toAddress} ${amount}`);
   const url = getRpcUrl(network);
   const connection = new Connection(url);
   const mint = new PublicKey(mintAddress);
