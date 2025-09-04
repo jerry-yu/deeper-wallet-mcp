@@ -11,11 +11,8 @@
   - Set up basic configuration file with constants and network settings
   - _Requirements: 6.1, 6.2, 6.3, 6.4_
 
+
 - [ ] 2. Implement core utility functions and configuration
-
-
-
-
   - Create utils.js with helper functions for token validation, amount conversion, and address validation
   - Implement config.js with network configurations, contract addresses, and default settings
   - Write unit tests for utility functions to ensure proper input validation and error handling
