@@ -14,6 +14,9 @@ const eth = require('./eth');
 const sol = require('./solana');
 const tron = require('./tron');
 const sui = require('./sui');
+const uniswap = require('./uniswap');
+exports.uniswap = uniswap;
+
 const { TokenInvalidInstructionTypeError } = require('@solana/spl-token');
 
 const PROXY_SERVER_ENDPOINT = 'https://proxy-wallet.deepernetworks.org';
@@ -1207,7 +1210,7 @@ async function transferEthErc20(password, fromAddress, contractAddress, toAddres
   }
   // Calculate the final gas price by multiplying the gas price by the multiplier
   const finalGasPrice = BigInt(Math.round(gasPrice * GAS_PRICE_MULTIPLIER));
-  const gasFee = finalGasPrice * BigInt(gas);
+  //const gasFee = finalGasPrice * BigInt(gas);
 
   // Prepare the payload to be signed by the hardware wallet
   const payload = {

@@ -10,6 +10,7 @@ const fs = require('fs');
 const path = require('path');
 const dotenv = require('dotenv');
 const os = require('os');
+const uniswap = require('./deeperWallet/uniswap.js');
 
 const NetworkDescribe =
     "The network to perform the operation on. " +
@@ -413,6 +414,41 @@ async function main() {
 }
 
 async function main2() {
+    // const [err9, pools] = await to(uniswap.getAllPools('ETHEREUM-SEPOLIA', '0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14', '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238'));
+    // if (err9) {
+    //     console.error('Error getting all pools:', err9);
+    //     return;
+    // }
+    // console.warn(`All Pools: ${JSON.stringify(pools)}`);
+
+    // const [err10, priceInfo] = await to(uniswap.getTokenPrice('ETHEREUM-SEPOLIA', '0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14', '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238'));
+    // if (err10) {
+    //     console.error('Error getting token price:', err10);
+    //     return;
+    // }
+    // console.warn(`Token Price Info: ${JSON.stringify(priceInfo)}`);
+    const [err11, result] = await to(uniswap.executeSwap(
+        '', // password - empty string as per existing pattern
+        '0x90dF5A3EDE13Ee1D090573460e13B0BFD8aa9708', // fromAddress
+        "0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14",
+        '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238',
+        '1000000000000000',
+        2,
+        'ETHEREUM-SEPOLIA',
+        {
+            version: 'V3',
+        }
+
+    ));
+
+    if (err11) {
+        console.error('Error executing swap:', err11);
+        return;
+    }
+    console.warn(`Swap Result: ${JSON.stringify(result)}`);
+}
+
+async function main5() {
     // const [err,balance] = await to(getBalance('SUI', '0x0feb54a725aa357ff2f5bc6bb023c05b310285bd861275a30521f339a434ebb3'));
     // if (err) {
     //     console.error('Error getting balance:', err);
@@ -473,7 +509,7 @@ async function main2() {
 
 }
 
-main().catch((error) => {
+main2().catch((error) => {
     console.error('Error starting server:', error);
     process.exit(1);
 });
