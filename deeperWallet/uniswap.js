@@ -1267,7 +1267,7 @@ async function executeTokenApproval(password, fromAddress, tokenAddress, spender
 
     // Sign transaction using hardware wallet
     const jsonPayload = JSON.stringify(payload);
-    const escapedPayload = jsonPayload.replace(/"/g, '\\"');
+    const escapedPayload = jsonPayload.replace(/"/g, '\\\"');
 
     // Get binary path (using same pattern as transferEthErc20)
     const DEEPER_WALLET_BIN_PATH = process.env.DEEPER_WALLET_BIN_PATH || 'D:\\git_resp\\hd-wallet\\target\\release\\hd-wallet.exe';
@@ -3348,16 +3348,11 @@ async function executeSwap(password, fromAddress, tokenIn, tokenOut, amountIn, a
     tokenIn = mapAddress(tokenIn, network);
     tokenOut = mapAddress(tokenOut, network);
 
-    console.warn("0000 ", { password, fromAddress, tokenIn, tokenOut, amountIn, amountOutMin, network, options });
-    // Basic input validation
-
-    console.warn("111");
     // Validate inputs
     const validation = validateSwapParams({ tokenIn, tokenOut, amountIn, network });
     if (!validation.isValid) {
       throw new Error(`Invalid parameters: ${validation.errors.join(', ')}`);
     }
-
 
     if (!isValidAddress(fromAddress)) {
       throw new Error('Invalid sender address');
@@ -3371,7 +3366,6 @@ async function executeSwap(password, fromAddress, tokenIn, tokenOut, amountIn, a
       throw new Error(`Unsupported network: ${network}`);
     }
 
-    console.warn("333333 ", options);
     // Set default options
     const {
       slippage = 0.5,
@@ -3384,118 +3378,107 @@ async function executeSwap(password, fromAddress, tokenIn, tokenOut, amountIn, a
     if (!isValidDeadline(deadline)) {
       throw new Error('Invalid deadline');
     }
-    console.warn("444");
+
     // Get optimal route if version not specified
-    const config = getNetworkConfig(network);
-    const routeInfo = {
-      version,
-      routerAddress: config.universalRouter,
-      fee: fee || FEE_TIERS.MEDIUM // Default to medium fee for V3
-    };
-    // let routeInfo;
-    // if (version) {
-    //   // Use specified version
-    //   const config = getNetworkConfig(network);
-    //   routeInfo = {
-    //     version,
-    //     routerAddress: config.universalRouter,
-    //     fee: fee || FEE_TIERS.MEDIUM // Default to medium fee for V3
-    //   };
-    // } else {
-    //   // Find optimal route
-    //   routeInfo = await selectOptimalRoute(network, tokenIn, tokenOut, amountIn, slippage);
-    //   if (!routeInfo) {
-    //     throw new Error('No available swap route found');
-    //   }
-    // }
-
-    console.warn("--- routeInfo", routeInfo);
-    const provider = new ethers.providers.JsonRpcProvider(getRpcUrl(network));
-
-    let commands = '0x';
-    if (isNativeIn) {
-      commands += '0b'; // unwrapWETH9
+    let routeInfo;
+    if (version) {
+      // Use specified version
+      const config = getNetworkConfig(network);
+      const routerAddress = version === 'V3' ? config.v3Router : config.v2Router;
+      routeInfo = {
+        version,
+        routerAddress,
+        fee: fee || FEE_TIERS.MEDIUM // Default to medium fee for V3
+      };
+    } else {
+      // Find optimal route
+      routeInfo = await selectOptimalRoute(network, tokenIn, tokenOut, amountIn, slippage);
+      if (!routeInfo) {
+        throw new Error('No available swap route found');
+      }
     }
-    if (routeInfo.version === 'V3') {
+
+    // Generate transaction data based on version
+    let callData;
+    let routerAddress = routeInfo.routerAddress;
+    
+    if (routeInfo.version === 'V2') {
+      // Use V2 router for V2 swaps
+      callData = encodeV2SwapData(tokenIn, tokenOut, amountIn, amountOutMin, fromAddress, deadline);
+      routerAddress = getNetworkConfig(network).v2Router;
+    } else if (routeInfo.version === 'V3') {
+      // Use Universal Router for V3 swaps
+      const provider = new ethers.providers.JsonRpcProvider(getRpcUrl(network));
+      
+      let commands = '0x';
+      if (isNativeIn) {
+        commands += '0b'; // unwrapWETH9
+      }
       commands += '00'; // swapV3
-    } else if (routeInfo.version === 'V2') {
-      commands += '08'; // swapV2
-    }
-    commands += '04'; // sweep
+      commands += '04'; // sweep
 
-    console.warn("----- commands ", commands);
-    const universalRouter = new ethers.Contract(routeInfo.routerAddress, universalRouterAbi, provider);
-    amountIn = BigInt(amountIn);
-    //wrap ethers
-    const wrap = ethers.utils.defaultAbiCoder.encode(
-      ["address", "uint256"],
-      [ROUTER_AS_RECIPIENT, amountIn]
-    );
-    console.warn("----- wrap ", wrap);
-
-
-    function v3PathEncode(tokenIn, tokenOut, fee) {
-      return ethers.utils.solidityPack(
-        ["address", "uint24", "address"],
-        [tokenIn, 100, tokenOut]
+      const universalRouter = new ethers.Contract(getNetworkConfig(network).universalRouter, universalRouterAbi, provider);
+      const amountInBigInt = BigInt(amountIn);
+      
+      // wrap input
+      const wrap = ethers.utils.defaultAbiCoder.encode(
+        ["address", "uint256"],
+        [ROUTER_AS_RECIPIENT, amountInBigInt]
       );
+
+      // V3 path encoding
+      function v3PathEncode(tokenIn, tokenOut, fee) {
+        return ethers.utils.solidityPack(
+          ["address", "uint24", "address"],
+          [tokenIn, fee, tokenOut]
+        );
+      }
+
+      const path = v3PathEncode(tokenIn, tokenOut, routeInfo.fee);
+
+      // V3 swap input
+      function v3Input(amountIn, amountOutMin, path, recipient, payerIsUser) {
+        return ethers.utils.defaultAbiCoder.encode(
+          [
+            "address", // recipient
+            "uint256", // amountIn
+            "uint256", // amountOutMinimum
+            "bytes", // path
+            "bool" // payerIsUser
+          ],
+          [
+            recipient, // recipient
+            amountIn, // amountIn
+            amountOutMin, // amountOutMinimum
+            path, // path
+            payerIsUser // payerIsUser
+          ]
+        );
+      }
+
+      const payerIsUser = false;
+      const swapV3Input = v3Input(amountInBigInt, amountOutMin, path, ROUTER_AS_RECIPIENT, payerIsUser);
+
+      // sweep output
+      function sweepEncode(tokenOut, toAddress) {
+        return ethers.utils.defaultAbiCoder.encode(
+          ["address", "address", "uint256"],
+          [tokenOut, toAddress, 0]
+        );
+      }
+
+      const sweep = sweepEncode(tokenOut, fromAddress);
+
+      callData = universalRouter.interface.encodeFunctionData("execute", [
+        commands,
+        [wrap, swapV3Input, sweep],
+        deadline
+      ]);
+      
+      routerAddress = getNetworkConfig(network).universalRouter;
+    } else {
+      throw new Error('Unknown Uniswap version');
     }
-
-   console.warn(tokenIn, tokenOut, routeInfo.fee);
-    // v3 swap path
-    // V3 path encoding: address (20 bytes) + fee (3 bytes) + address (20 bytes)
-    // ethers.utils.solidityPack(["address", "uint24", "address"], [...])
-    const path = v3PathEncode(tokenIn, tokenOut, routeInfo.fee);
-    console.warn("----- path ", path);
-
-    function v3Input(amountIn, path, _recipient, payerIsUser) {
-
-      const swapV3Input = ethers.utils.defaultAbiCoder.encode(
-        [
-          "address", // recipient
-          "uint256", // amountIn
-          "uint256", // amountOutMinimum
-          "bytes", // path
-          "bool" // payerIsUser
-        ],
-        [
-          ROUTER_AS_RECIPIENT, // recipient
-          amountIn, // amountIn
-          256, // amountOutMinimum
-          // ethers.utils.arrayify 将 hex string 转为 bytes
-          path,//ethers.utils.arrayify(path), // path
-          payerIsUser // payerIsUser
-        ]
-      );
-      return swapV3Input;
-
-    }
-
-    const payerIsUser = false;
-    // v3 swap input
-    const swapV3Input = v3Input(amountIn, path, ROUTER_AS_RECIPIENT, payerIsUser);
-
-
-    console.warn("----- swapV3Input ", swapV3Input);
-
-    function sweepEncode(tokenOut, toAddress) {
-      return ethers.utils.defaultAbiCoder.encode(
-        ["address", "address", "uint256"],
-        [tokenOut, toAddress, 0]
-      );
-    }
-
-    //sweep
-    const sweep = sweepEncode(tokenOut, fromAddress);
-    console.warn("----- sweep ", sweep);
-
-    const callData = universalRouter.interface.encodeFunctionData("execute", [
-      commands,
-      [wrap, swapV3Input, sweep],
-      deadline
-    ]);
-
-    console.warn("------------------------- ", callData);
 
     const txEssentials = await eth.get_tx_essential_elem(network, fromAddress);
     if (!txEssentials) {
@@ -3503,34 +3486,16 @@ async function executeSwap(password, fromAddress, tokenIn, tokenOut, amountIn, a
     }
 
     const { nonce, gas_price: gasPrice } = txEssentials;
+    
     // Estimate gas for swap transaction
-    const gas = await eth.estimate_gas(network, fromAddress, routeInfo.routerAddress, amountIn, callData.startsWith('0x') ? callData : '0x' + callData);
+    const gas = await eth.estimate_gas(network, fromAddress, routerAddress, isNativeIn ? amountIn : 0, callData.startsWith('0x') ? callData : '0x' + callData);
     if (!gas) {
       throw new Error('Failed to estimate gas');
     }
-    console.warn("----- gas ", gas);
 
     // Calculate gas fee with multiplier
     const GAS_PRICE_MULTIPLIER = 1.2; // 20% buffer
     const finalGasPrice = BigInt(Math.round(gasPrice * GAS_PRICE_MULTIPLIER));
-    //const gasFee = finalGasPrice * BigInt(gas);
-
-    // Get network configuration for chain ID
-    // function getNetworkChainId(networkName) {
-    //   const networkMap = {
-    //     'ETHEREUM': 1,
-    //     'ETHEREUM-SEPOLIA': 11155111,
-    //     'ARBITRUM': 42161,
-    //     'ARBITRUM-TESTNET': 421614,
-    //     'OPTIMISM': 10,
-    //     'OPTIMISM-TESTNET': 11155420,
-    //     'BASE': 8453,
-    //     'BASE-TESTNET': 84532,
-    //     'BNBSMARTCHAIN': 56,
-    //     'BNBSMARTCHAIN-TESTNET': 97
-    //   };
-    //   return networkMap[networkName.toUpperCase()] || 1;
-    // }
 
     // Prepare payload for hardware wallet signing
     const payload = {
@@ -3540,8 +3505,8 @@ async function executeSwap(password, fromAddress, tokenIn, tokenOut, amountIn, a
         address: fromAddress,
         input: {
           nonce: nonce.toString(),
-          to: routeInfo.routerAddress,
-          value: amountIn.toString(),
+          to: routerAddress,
+          value: isNativeIn ? amountIn.toString() : '0',
           gas_price: finalGasPrice.toString(),
           gas: gas.toString(),
           data: callData,
@@ -3555,7 +3520,7 @@ async function executeSwap(password, fromAddress, tokenIn, tokenOut, amountIn, a
 
     // Sign transaction using hardware wallet
     const jsonPayload = JSON.stringify(payload);
-    const escapedPayload = jsonPayload.replace(/"/g, '\\"');
+    const escapedPayload = jsonPayload.replace(/"/g, '\\\"');
 
     // Get binary path
     const DEEPER_WALLET_BIN_PATH = process.env.DEEPER_WALLET_BIN_PATH || 'D:\\git_resp\\hd-wallet\\target\\release\\hd-wallet.exe';
@@ -3571,16 +3536,17 @@ async function executeSwap(password, fromAddress, tokenIn, tokenOut, amountIn, a
     }
 
     // Send signed transaction
-    const signedTransaction = `0x${signResult.signature.replace(/^"|"$/g, '')}`;
+    const signedTransaction = `0x${signResult.signature.replace(/^"|"`/g, '')}`;
     const txHash = await eth.sendEthRawTransaction(network, signedTransaction);
 
     if (!txHash) {
       throw new Error('Failed to send swap transaction');
     }
-    console.warn("txHash ", txHash);
 
     return {
       transactionHash: txHash,
+      version: routeInfo.version,
+      routerAddress: routerAddress
     };
   } catch (error) {
     console.error('Error executing swap:', error.message);
