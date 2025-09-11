@@ -430,7 +430,7 @@ async function main2() {
     const [err11, result] = await to(uniswap.executeSwap(
         '', // password - empty string as per existing pattern
         '0x90dF5A3EDE13Ee1D090573460e13B0BFD8aa9708', // fromAddress
-        "0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14",
+        "eth",
         '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238',
         '1000000000000000',
         2,

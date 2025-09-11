@@ -3414,13 +3414,16 @@ async function executeSwap(password, fromAddress, tokenIn, tokenOut, amountIn, a
 
     let commands = '0x';
     if (isNativeIn) {
-      commands += '02'; // unwrapWETH9
+      commands += '0b'; // unwrapWETH9
     }
     if (routeInfo.version === 'V3') {
       commands += '00'; // swapV3
     } else if (routeInfo.version === 'V2') {
       commands += '08'; // swapV2
     }
+    commands += '04'; // sweep
+
+    console.warn("----- commands ", commands);
     const universalRouter = new ethers.Contract(routeInfo.routerAddress, universalRouterAbi, provider);
     amountIn = BigInt(amountIn);
     //wrap ethers
@@ -3505,11 +3508,12 @@ async function executeSwap(password, fromAddress, tokenIn, tokenOut, amountIn, a
     if (!gas) {
       throw new Error('Failed to estimate gas');
     }
+    console.warn("----- gas ", gas);
 
     // Calculate gas fee with multiplier
     const GAS_PRICE_MULTIPLIER = 1.2; // 20% buffer
     const finalGasPrice = BigInt(Math.round(gasPrice * GAS_PRICE_MULTIPLIER));
-    const gasFee = finalGasPrice * BigInt(gas);
+    //const gasFee = finalGasPrice * BigInt(gas);
 
     // Get network configuration for chain ID
     // function getNetworkChainId(networkName) {
@@ -3528,7 +3532,6 @@ async function executeSwap(password, fromAddress, tokenIn, tokenOut, amountIn, a
     //   return networkMap[networkName.toUpperCase()] || 1;
     // }
 
-    network = getNetwork(network);
     // Prepare payload for hardware wallet signing
     const payload = {
       method: 'sign_tx',
@@ -3538,7 +3541,7 @@ async function executeSwap(password, fromAddress, tokenIn, tokenOut, amountIn, a
         input: {
           nonce: nonce.toString(),
           to: routeInfo.routerAddress,
-          value: amountIn,
+          value: amountIn.toString(),
           gas_price: finalGasPrice.toString(),
           gas: gas.toString(),
           data: callData,
