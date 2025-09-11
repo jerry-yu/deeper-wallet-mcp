@@ -500,12 +500,12 @@ async function main5() {
     // }
     // console.warn(`Transfer Contract Token Result: ${JSON.stringify(transferResult4)}`);
 
-    const [err8, accountList] = await to(deriveAccountList());
-    if (err8) {
-        console.error('Error deriving account list:', err8);
-        return;
-    }
-    console.warn(`Account List: ${JSON.stringify(accountList)}`);
+    // const [err8, accountList] = await to(deriveAccountList());
+    // if (err8) {
+    //     console.error('Error deriving account list:', err8);
+    //     return;
+    // }
+    // console.warn(`Account List: ${JSON.stringify(accountList)}`);
 
 }
 
