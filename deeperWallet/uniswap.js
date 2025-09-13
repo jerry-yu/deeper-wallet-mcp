@@ -1291,13 +1291,7 @@ async function executeTokenApproval(password, fromAddress, tokenAddress, spender
     }
 
     return {
-      transactionHash: txHash,
-      tokenAddress,
-      spenderAddress,
-      approvedAmount: amount,
-      gasUsed: gas,
-      gasPrice: finalGasPrice.toString(),
-      nonce
+      transactionHash: txHash
     };
   } catch (error) {
     console.error('Error executing token approval:', error.message);
@@ -3316,7 +3310,6 @@ function mapAddress(address, network) {
   }
 }
 
-
 /**
  * Execute a Uniswap swap transaction
  * @param {string} password - Wallet password
@@ -3399,17 +3392,19 @@ async function executeSwap(password, fromAddress, tokenIn, tokenOut, amountIn, a
     }
 
     // Generate transaction data based on version
-    let callData;
-    let routerAddress = routeInfo.routerAddress;
     
+    const  routerAddress = getNetworkConfig(network).universalRouter;
+     const provider = new ethers.providers.JsonRpcProvider(getRpcUrl(network));
+      
+     const universalRouter = new ethers.Contract(routerAddress, universalRouterAbi, provider);
+     
+    let callData;
     if (routeInfo.version === 'V2') {
       // Use V2 router for V2 swaps
       callData = encodeV2SwapData(tokenIn, tokenOut, amountIn, amountOutMin, fromAddress, deadline);
-      routerAddress = getNetworkConfig(network).v2Router;
     } else if (routeInfo.version === 'V3') {
       // Use Universal Router for V3 swaps
-      const provider = new ethers.providers.JsonRpcProvider(getRpcUrl(network));
-      
+     
       let commands = '0x';
       if (isNativeIn) {
         commands += '0b'; // unwrapWETH9
@@ -3417,7 +3412,6 @@ async function executeSwap(password, fromAddress, tokenIn, tokenOut, amountIn, a
       commands += '00'; // swapV3
       commands += '04'; // sweep
 
-      const universalRouter = new ethers.Contract(getNetworkConfig(network).universalRouter, universalRouterAbi, provider);
       const amountInBigInt = BigInt(amountIn);
       
       // wrap input
@@ -3475,7 +3469,7 @@ async function executeSwap(password, fromAddress, tokenIn, tokenOut, amountIn, a
         deadline
       ]);
       
-      routerAddress = getNetworkConfig(network).universalRouter;
+     
     } else {
       throw new Error('Unknown Uniswap version');
     }

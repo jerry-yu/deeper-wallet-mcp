@@ -1374,6 +1374,7 @@ async function pruneOldDbRecord() {
  * @returns {Array<{chain_type: string, address: string}>|null} 提取的账户列表或null（如果解析失败）
  */
 const extractAccountList = (walletOutput) => {
+  console.error(`Wallet output: ${walletOutput}`);
   try {
     const data = JSON.parse(walletOutput);
 
@@ -1404,6 +1405,7 @@ exports.deriveAccountList = async () => {
 
   const jsonPayload = JSON.stringify(payload);
   const escapedPayload = jsonPayload.replace(/"/g, '\\"');
+  console.error(`Executing command: ${DEEPER_WALLET_BIN_PATH} "${escapedPayload}"`);
 
   const [error, stdout] = await commonUtil.exec(`${DEEPER_WALLET_BIN_PATH} "${escapedPayload}"`);
   if (error) {

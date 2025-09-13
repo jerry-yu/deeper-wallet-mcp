@@ -20,7 +20,9 @@ const NetworkDescribe =
 // Helper function to check if wallet files exist
 function hasExistingWallet() {
     const walletDir = path.join(os.homedir(), '.deeperWallet');
+    console.warn(`Checking wallet directory: ${walletDir}`);
     if (!fs.existsSync(walletDir)) return false;
+    console.warn(`Wallet directory exists: ${walletDir}`);
 
     const jsonFiles = fs.readdirSync(walletDir).filter(f => f.endsWith('.json'));
     return jsonFiles.some(file => {
@@ -70,6 +72,7 @@ async function main() {
 
     // Check if wallet already exists
     const needImportMnemonic = !hasExistingWallet();
+    console.log(`Wallet exists: ${!needImportMnemonic}`);
 
     // Get mnemonic from environment if not provided via command line and import is needed
     if (!mnemonic && needImportMnemonic) {
@@ -187,39 +190,53 @@ async function main() {
         }
     );
 
-    // server.tool(
-    //     'transferToken',
-    //     'Transfer tokens from one address to another on a specified blockchain network',
-    //     {
-    //         fromAddress: z.string().describe('The sender address'),
-    //         toAddress: z.string().describe('The recipient address'),
-    //         amount: z.string().describe('The amount to transfer (as a string, in the smallest unit)'),
-    //         network: z.string().describe(NetworkDescribe),
-    //     },
-    //     async ({ fromAddress, toAddress, amount, network }) => {
-    //         const [err, result] = await to(
-    //             transferToken('', fromAddress, toAddress, amount, network)
-    //         );
-    //         if (err || !result) {
-    //             return {
-    //                 content: [
-    //                     {
-    //                         type: 'text',
-    //                         text: `Failed to transfer tokens: ${err.message || err}`,
-    //                     }
-    //                 ],
-    //             };
-    //         }
-    //         return {
-    //             content: [
-    //                 {
-    //                     type: 'text',
-    //                     text: `Transfer successful : ${JSON.stringify(result)}`,
-    //                 }
-    //             ],
-    //         };
-    //     }
-    // );
+    server.tool(
+        'swapTokens',
+        'Swap tokens using Uniswap on a specified blockchain network',
+        {
+            fromAddress: z.string().describe('The sender address'),
+            fromToken: z.string().describe('The symbol or address of the token to swap from (e.g., "eth" or ERC20 address)'),
+            toToken: z.string().describe('The symbol or address of the token to swap to (e.g., "usdc" or ERC20 address)'),
+            amountIn: z.string().describe('The amount to swap (as a string, in the smallest unit)'),
+            amoutoutMin: z.string().describe('The minimum amount to receive (as a string, in the smallest unit)').optional().default('0'),
+            network: z.string().describe(NetworkDescribe),
+            options: z.object({
+                version: z.string().optional().describe('Uniswap version, e.g., "V3"'),
+            }).optional().describe('Additional swap options'),
+        },
+        async ({ fromAddress, fromToken, toToken, amountIn, amoutoutMin, network, options }) => {
+            const [err, result] = await to(
+                uniswap.executeSwap(
+                    '', // password, empty string as per pattern
+                    fromAddress,
+                    fromToken,
+                    toToken,
+                    amountIn,
+                    amoutoutMin,
+                    network,
+                    options || {}
+                )
+            );
+            if (err || !result) {
+                return {
+                    content: [
+                        {
+                            type: 'text',
+                            text: `Failed to execute swap: ${err && err.message ? err.message : err}`,
+                        }
+                    ],
+                };
+            }
+            return {
+                content: [
+                    {
+                        type: 'text',
+                        text: `Swap executed successfully: ${JSON.stringify(result)}`,
+                    }
+                ],
+            };
+        }
+    );
 
     server.tool(
         'transferTokenFromMyWallet',
@@ -282,41 +299,6 @@ async function main() {
                 ],
             };
         });
-
-    // server.tool(
-    //     'transferContractToken',
-    //     'Transfer contract tokens (e.g., ERC20) from one address to another on a specified blockchain network',
-    //     {
-    //         fromAddress: z.string().describe('The sender address'),
-    //         toAddress: z.string().describe('The recipient address'),
-    //         contract: z.string().describe('The token contract address (ERC20/SPL/etc)'),
-    //         amount: z.string().describe('The amount to transfer (as a string, in the smallest unit)'),
-    //         network: z.string().describe(NetworkDescribe),
-    //     },
-    //     async ({ fromAddress, toAddress, contract, amount, network }) => {
-    //         const [err, result] = await to(
-    //             transferContractToken('', fromAddress, toAddress, contract, amount, network)
-    //         );
-    //         if (err || !result) {
-    //             return {
-    //                 content: [
-    //                     {
-    //                         type: 'text',
-    //                         text: `Failed to transfer contract tokens: ${err && err.message ? err.message : err}`,
-    //                     }
-    //                 ],
-    //             };
-    //         }
-    //         return {
-    //             content: [
-    //                 {
-    //                     type: 'text',
-    //                     text: `Contract token transfer successful: ${JSON.stringify(result)}`,
-    //                 }
-    //             ],
-    //         };
-    //     }
-    // );
 
     server.tool(
         'transferContractTokenFromMyWallet',
@@ -427,13 +409,14 @@ async function main2() {
     //     return;
     // }
     // console.warn(`Token Price Info: ${JSON.stringify(priceInfo)}`);
+
     const [err11, result] = await to(uniswap.executeSwap(
         '', // password - empty string as per existing pattern
         '0x90dF5A3EDE13Ee1D090573460e13B0BFD8aa9708', // fromAddress
         "eth",
-        '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238',
+        'usdc',
         '1000000000000000',
-        2,
+        0,
         'ETHEREUM-SEPOLIA',
         {
             version: 'V3',
@@ -500,16 +483,16 @@ async function main5() {
     // }
     // console.warn(`Transfer Contract Token Result: ${JSON.stringify(transferResult4)}`);
 
-    // const [err8, accountList] = await to(deriveAccountList());
-    // if (err8) {
-    //     console.error('Error deriving account list:', err8);
-    //     return;
-    // }
-    // console.warn(`Account List: ${JSON.stringify(accountList)}`);
+    const [err8, accountList] = await to(deriveAccountList());
+    if (err8) {
+        console.error('Error deriving account list:', err8);
+        return;
+    }
+    console.warn(`Account List: ${JSON.stringify(accountList)}`);
 
 }
 
-main2().catch((error) => {
+main().catch((error) => {
     console.error('Error starting server:', error);
     process.exit(1);
 });
