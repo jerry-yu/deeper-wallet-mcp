@@ -413,13 +413,14 @@ async function main2() {
     const [err11, result] = await to(uniswap.executeSwap(
         '', // password - empty string as per existing pattern
         '0x90dF5A3EDE13Ee1D090573460e13B0BFD8aa9708', // fromAddress
-        "eth",
-        'usdc',
-        '1000000000000000',
+        '0x6727002ad781e0fB768ba11E404965ABA89aFfca',
+        "0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984",
+        
+        '100000000000',
         0,
         'ETHEREUM-SEPOLIA',
         {
-            version: 'V3',
+            version: 'V2',
         }
 
     ));
@@ -483,16 +484,16 @@ async function main5() {
     // }
     // console.warn(`Transfer Contract Token Result: ${JSON.stringify(transferResult4)}`);
 
-    const [err8, accountList] = await to(deriveAccountList());
-    if (err8) {
-        console.error('Error deriving account list:', err8);
-        return;
-    }
-    console.warn(`Account List: ${JSON.stringify(accountList)}`);
+    // const [err8, accountList] = await to(deriveAccountList());
+    // if (err8) {
+    //     console.error('Error deriving account list:', err8);
+    //     return;
+    // }
+    // console.warn(`Account List: ${JSON.stringify(accountList)}`);
 
 }
 
-main().catch((error) => {
+main2().catch((error) => {
     console.error('Error starting server:', error);
     process.exit(1);
 });

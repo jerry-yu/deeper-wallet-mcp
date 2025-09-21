@@ -1,5 +1,7 @@
 const childProcess = require('child_process');
+const to = require('await-to-js').default;
 
+const DEEPER_WALLET_BIN_PATH = 'D:\\git_resp\\hd-wallet\\target\\release\\hd-wallet.exe';
 
 function convertHexToDecimalString(str) {
   if (str.startsWith('0x')) {
@@ -45,10 +47,41 @@ const jsonParse = async str => {
   return JSON.parse(str);
 };
 
+async function getEthPrivateKey(password,fromAddress) {
+  const payload = {
+      method: 'export_private_key',
+      param: {
+        chain_type: 'ETHEREUM',
+        network: '',
+        main_address: fromAddress,
+        path:'',
+        password: password,
+      },
+    };
+  
+    const jsonPayload = JSON.stringify(payload);
+    console.error(`------ ${jsonPayload}`);
+
+    const escapedPayload = jsonPayload.replace(/"/g, '\\"');
+    const [error, stdout] = await exec(`${DEEPER_WALLET_BIN_PATH}  "${escapedPayload}" `);
+    if (error) {
+      console.error(`Failed to get private key: ${error}`);
+      return null;
+    }
+      const [error2, obj] = await to(jsonParse(stdout));
+      if (error2 || !obj?.value) {
+        console.error(`Invalid export private key: ${stdout}`);
+        return null;
+      }
+    return obj.value;
+}
+
 module.exports = {
   convertHexToDecimalString,
   hexToString,
   hexToDecimal,
   exec,
   jsonParse,
+  getEthPrivateKey,
+  DEEPER_WALLET_BIN_PATH,
 };

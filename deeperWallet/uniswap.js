@@ -3,9 +3,21 @@ const axios = require('axios');
 const to = require('await-to-js').default;
 const Decimal = require('decimal.js');
 const { ethers } = require('ethers');
-// import { Actions, V4Planner } from '@uniswap/v4-sdk'
-// import { CommandType, RoutePlanner } from '@uniswap/universal-router-sdk'
+const { Actions, V4Planner, SwapExactInSingle } = require('@uniswap/v4-sdk');
+const eth = require('./eth');
+const commonUtil = require('./utils');
+const {
+  AllowanceTransfer,
+  PERMIT2_ADDRESS,
+  MaxAllowanceTransferAmount,
+  MaxUint48,
+  AllowanceProvider,
+  MaxUint256,
+} = require("@uniswap/permit2-sdk");
 
+const { CommandType, RoutePlanner, ROUTER_AS_RECIPIENT } = require('@uniswap/universal-router-sdk');
+const { getEthPrivateKey } = require('./utils');
+const { de } = require('zod/v4/locales');
 Decimal.set({ precision: 60, rounding: Decimal.ROUND_HALF_UP });
 
 // Commonly used addresses From uniswap universal router sdk
@@ -14,7 +26,6 @@ const E_ETH_ADDRESS = '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee'
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 
 const SENDER_AS_RECIPIENT = '0x0000000000000000000000000000000000000001'
-const ROUTER_AS_RECIPIENT = '0x0000000000000000000000000000000000000002'
 
 // ============================================================================
 // PERFORMANCE CACHING SYSTEM
@@ -654,8 +665,6 @@ async function sendRpcRequest(rpcUrl, method, params = []) {
     )
   );
 
-  console.warn(`========= sendRpcRequest: ${rpcUrl} ${method} ${JSON.stringify(params)}`);
-
   if (error) {
     console.error(`Failed to sendRpcRequest: ${rpcUrl} ${method}`, error.message);
     return null;
@@ -1087,9 +1096,8 @@ async function getTokenAllowance(network, tokenAddress, ownerAddress, spenderAdd
         to: tokenAddress,
         data: data
       },
-      'latest'
+      'pending'
     ]);
-
     if (!result || result === '0x') {
       return '0';
     }
@@ -1214,10 +1222,10 @@ async function executeTokenApproval(password, fromAddress, tokenAddress, spender
     const { nonce, gas_price: gasPrice } = txEssentials;
 
     // Generate approval calldata
-    const callData = getApprovalCalldata(spenderAddress, amount);
-
+    const callData = getApprovalCalldata(spenderAddress, MaxUint256.toString());
+    console.warn("==== approval callData:", callData);
     // Estimate gas for approval transaction
-    const gas = await eth.estimate_gas(network, fromAddress, tokenAddress, 0, '0x' + callData);
+    const gas = await eth.estimate_gas(network, fromAddress, tokenAddress, 0, callData);
     if (!gas) {
       throw new Error('Failed to estimate gas');
     }
@@ -1227,23 +1235,7 @@ async function executeTokenApproval(password, fromAddress, tokenAddress, spender
     const finalGasPrice = BigInt(Math.round(gasPrice * GAS_PRICE_MULTIPLIER));
     const gasFee = finalGasPrice * BigInt(gas);
 
-    // Get network configuration for chain ID
-    // function getNetwork(networkName) {
-    //   const networkMap = {
-    //     'ETHEREUM': 1,
-    //     'ETHEREUM-SEPOLIA': 11155111,
-    //     'ARBITRUM': 42161,
-    //     'ARBITRUM-TESTNET': 421614,
-    //     'OPTIMISM': 10,
-    //     'OPTIMISM-TESTNET': 11155420,
-    //     'BASE': 8453,
-    //     'BASE-TESTNET': 84532,
-    //     'BNBSMARTCHAIN': 56,
-    //     'BNBSMARTCHAIN-TESTNET': 97
-    //   };
-    //   return networkMap[networkName.toUpperCase()] || 1;
-    // }
-
+    console.warn("==== approval gas:", gas, "gasPrice:", finalGasPrice.toString(), "gasFee (wei):", gasFee.toString());
     // Prepare payload for hardware wallet signing
     const payload = {
       method: 'sign_tx',
@@ -1267,6 +1259,7 @@ async function executeTokenApproval(password, fromAddress, tokenAddress, spender
 
     // Sign transaction using hardware wallet
     const jsonPayload = JSON.stringify(payload);
+    console.warn("==== sign_tx payload:", jsonPayload);
     const escapedPayload = jsonPayload.replace(/"/g, '\\\"');
 
     // Get binary path (using same pattern as transferEthErc20)
@@ -1276,7 +1269,7 @@ async function executeTokenApproval(password, fromAddress, tokenAddress, spender
     if (err) {
       throw new Error('Failed to sign approval transaction');
     }
-
+    console.warn("==== sign_tx output:", stdout);
     const [parseErr, signResult] = await to(commonUtil.jsonParse(stdout));
     if (parseErr || !signResult?.signature) {
       throw new Error(`Invalid sign_tx output: ${stdout}`);
@@ -1314,11 +1307,10 @@ async function executeTokenApproval(password, fromAddress, tokenAddress, spender
  */
 async function handleTokenApproval(password, fromAddress, tokenAddress, spenderAddress, amount, network, options = {}) {
   try {
-    const { maxRetries = 3, retryDelay = 2000 } = options;
+    const { maxRetries = 1, retryDelay = 2000 } = options;
 
     // First check if approval is already sufficient
     const approvalStatus = await checkTokenApproval(network, tokenAddress, fromAddress, spenderAddress, amount);
-
     if (approvalStatus.error) {
       return {
         success: false,
@@ -1342,8 +1334,6 @@ async function handleTokenApproval(password, fromAddress, tokenAddress, spenderA
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        console.info(`Attempting token approval (attempt ${attempt}/${maxRetries})`);
-
         const approvalResult = await executeTokenApproval(
           password,
           fromAddress,
@@ -3310,6 +3300,103 @@ function mapAddress(address, network) {
   }
 }
 
+// V3 swap input
+function v3Input(amountIn, amountOutMin, path, recipient, payerIsUser) {
+  return ethers.utils.defaultAbiCoder.encode(
+    [
+      "address", // recipient
+      "uint256", // amountIn
+      "uint256", // amountOutMinimum
+      "bytes", // path
+      "bool" // payerIsUser
+    ],
+    [
+      recipient, // recipient
+      amountIn, // amountIn
+      amountOutMin, // amountOutMinimum
+      path, // path
+      payerIsUser // payerIsUser
+    ]
+  );
+}
+
+// V3 path encoding
+function v3PathEncode(tokenIn, tokenOut, fee) {
+  return ethers.utils.solidityPack(
+    ["address", "uint24", "address"],
+    [tokenIn, fee, tokenOut]
+  );
+}
+
+// sweep output
+function sweepEncode(tokenOut, toAddress) {
+  return ethers.utils.defaultAbiCoder.encode(
+    ["address", "address", "uint256"],
+    [tokenOut, toAddress, 0]
+  );
+}
+
+async function permit2Encode(wallet, token, amount, spender) {
+  try {
+    const allowance = new AllowanceProvider(wallet.provider, PERMIT2_ADDRESS);
+    const allowData = await allowance.getAllowanceData(token, wallet.address, spender);
+    console.warn(`*********************************: ${token} ${wallet.address} ${spender}`);
+    console.warn(`Permit2 allowance data: ${JSON.stringify(allowData)}`);
+    if (BigInt(allowData.amount) >= BigInt(amount) && BigInt(allowData.expiration) > BigInt(Math.floor(Date.now() / 1000))) {
+      // Sufficient allowance already granted
+      return null;
+    }
+
+    const chainId = (await wallet.provider.getNetwork()).chainId;
+    const expiration = MaxUint48;
+    const deadline = Math.floor(Date.now() / 1000) + 3600; // 1 hour from now
+    const nonce = allowData.nonce + 1;
+
+    const permitSingle = {
+      details: {
+        token: token,
+        amount: amount.toString(),
+        expiration: expiration.toString(),
+        nonce: nonce,
+      },
+      spender: spender,
+      sigDeadline: deadline,
+    };
+
+    const { domain, types, values } = AllowanceTransfer.getPermitData(
+      permitSingle,
+      PERMIT2_ADDRESS,
+      chainId // chainId
+    );
+
+    const signature = await wallet._signTypedData(domain, types, values);
+
+    const permit2PermitInput = ethers.utils.defaultAbiCoder.encode(
+      [
+        "tuple(tuple(address token, uint160 amount, uint48 expiration, uint48 nonce) details, address spender, uint256 sigDeadline) permitSingle",
+        "bytes signature"
+      ],
+      [
+        [
+          [
+            permitSingle.details.token,
+            permitSingle.details.amount,
+            permitSingle.details.expiration,
+            permitSingle.details.nonce
+          ],
+          permitSingle.spender,
+          permitSingle.sigDeadline
+        ],
+        signature
+      ]
+    );
+    return permit2PermitInput;
+  } catch (error) {
+    console.error('Error signing Permit2 transfer:', error.message);
+    throw error;
+  }
+}
+
 /**
  * Execute a Uniswap swap transaction
  * @param {string} password - Wallet password
@@ -3329,8 +3416,7 @@ function mapAddress(address, network) {
 async function executeSwap(password, fromAddress, tokenIn, tokenOut, amountIn, amountOutMin, network, options = {}) {
   try {
     // Import required modules
-    const eth = require('./eth');
-    const commonUtil = require('./utils');
+
     tokenIn = tokenIn.toLowerCase();
     tokenOut = tokenOut.toLowerCase();
     let isNativeIn = false;
@@ -3364,13 +3450,31 @@ async function executeSwap(password, fromAddress, tokenIn, tokenOut, amountIn, a
       slippage = 0.5,
       deadline = Math.floor(Date.now() / 1000) + 1200, // 20 minutes from now
       version = null,
-      fee = null
+      fee = FEE_TIERS.MEDIUM,
+      tickSpacing = 60
     } = options;
 
     // Validate deadline 
     if (!isValidDeadline(deadline)) {
       throw new Error('Invalid deadline');
     }
+
+
+    const routerAddress = getNetworkConfig(network).universalRouter;
+    const provider = new ethers.providers.JsonRpcProvider(getRpcUrl(network));
+
+    const universalRouter = new ethers.Contract(routerAddress, universalRouterAbi, provider);
+    const sk = await getEthPrivateKey('', fromAddress);
+    if (!sk) {
+      throw new Error('Failed to get private key for signing');
+    }
+    console.warn("sk", sk);
+
+    const signer = new ethers.Wallet(
+      sk,
+      provider
+    );
+    console.warn("Using address", signer.address);
 
     // Get optimal route if version not specified
     let routeInfo;
@@ -3381,7 +3485,7 @@ async function executeSwap(password, fromAddress, tokenIn, tokenOut, amountIn, a
       routeInfo = {
         version,
         routerAddress,
-        fee: fee || FEE_TIERS.MEDIUM // Default to medium fee for V3
+        fee: fee,
       };
     } else {
       // Find optimal route
@@ -3391,20 +3495,25 @@ async function executeSwap(password, fromAddress, tokenIn, tokenOut, amountIn, a
       }
     }
 
-    // Generate transaction data based on version
-    
-    const  routerAddress = getNetworkConfig(network).universalRouter;
-     const provider = new ethers.providers.JsonRpcProvider(getRpcUrl(network));
-      
-     const universalRouter = new ethers.Contract(routerAddress, universalRouterAbi, provider);
-     
     let callData;
     if (routeInfo.version === 'V2') {
-      // Use V2 router for V2 swaps
-      callData = encodeV2SwapData(tokenIn, tokenOut, amountIn, amountOutMin, fromAddress, deadline);
+      const res = await handleTokenApproval('', fromAddress, tokenIn, PERMIT2_ADDRESS, amountIn, network);
+      console.warn("Approval result", res)
+
+      const permit = await permit2Encode(signer, tokenIn, amountIn, routerAddress);
+      console.warn("==================permit ===================", permit)
+      if (permit) {
+        let commands = CommandType.PERMIT2_PERMIT;
+        const deadline = Math.floor(Date.now() / 1000) + 3600
+        callData = universalRouter.interface.encodeFunctionData("execute", [
+          commands,
+          [permit],
+          deadline
+        ]);
+      }
     } else if (routeInfo.version === 'V3') {
       // Use Universal Router for V3 swaps
-     
+
       let commands = '0x';
       if (isNativeIn) {
         commands += '0b'; // unwrapWETH9
@@ -3413,53 +3522,17 @@ async function executeSwap(password, fromAddress, tokenIn, tokenOut, amountIn, a
       commands += '04'; // sweep
 
       const amountInBigInt = BigInt(amountIn);
-      
+
       // wrap input
       const wrap = ethers.utils.defaultAbiCoder.encode(
         ["address", "uint256"],
         [ROUTER_AS_RECIPIENT, amountInBigInt]
       );
 
-      // V3 path encoding
-      function v3PathEncode(tokenIn, tokenOut, fee) {
-        return ethers.utils.solidityPack(
-          ["address", "uint24", "address"],
-          [tokenIn, fee, tokenOut]
-        );
-      }
 
       const path = v3PathEncode(tokenIn, tokenOut, routeInfo.fee);
-
-      // V3 swap input
-      function v3Input(amountIn, amountOutMin, path, recipient, payerIsUser) {
-        return ethers.utils.defaultAbiCoder.encode(
-          [
-            "address", // recipient
-            "uint256", // amountIn
-            "uint256", // amountOutMinimum
-            "bytes", // path
-            "bool" // payerIsUser
-          ],
-          [
-            recipient, // recipient
-            amountIn, // amountIn
-            amountOutMin, // amountOutMinimum
-            path, // path
-            payerIsUser // payerIsUser
-          ]
-        );
-      }
-
       const payerIsUser = false;
       const swapV3Input = v3Input(amountInBigInt, amountOutMin, path, ROUTER_AS_RECIPIENT, payerIsUser);
-
-      // sweep output
-      function sweepEncode(tokenOut, toAddress) {
-        return ethers.utils.defaultAbiCoder.encode(
-          ["address", "address", "uint256"],
-          [tokenOut, toAddress, 0]
-        );
-      }
 
       const sweep = sweepEncode(tokenOut, fromAddress);
 
@@ -3468,8 +3541,82 @@ async function executeSwap(password, fromAddress, tokenIn, tokenOut, amountIn, a
         [wrap, swapV3Input, sweep],
         deadline
       ]);
-      
-     
+
+
+    } else if (routeInfo.version === 'V4') {
+
+      if (isNativeIn) {
+        tokenIn = ZERO_ADDRESS;
+      }
+      const swapExactInSingle = {
+        poolKey: {
+          currency0: tokenIn,
+          currency1: tokenOut,
+          fee: fee,
+          tickSpacing: tickSpacing,
+          hooks: "0x0000000000000000000000000000000000000000",
+        },
+        zeroForOne: true, // The direction of swap is ETH to USDC. Change it to 'false' for the reverse direction
+        amountIn: amountIn, // Amount of input token to swap
+        amountOutMinimum: amountOutMin, // Minimum amount of output token to receive
+        hookData: '0x'
+      };
+
+      console.warn("swapExactInSingle", swapExactInSingle)
+
+      const v4Planner = new V4Planner()
+      const routePlanner = new RoutePlanner()
+
+      // Set deadline (1 hour from now)
+      const deadline = Math.floor(Date.now() / 1000) + 3600
+      v4Planner.addAction(Actions.SWAP_EXACT_IN_SINGLE, [swapExactInSingle]);
+      v4Planner.addAction(Actions.SETTLE_ALL, [swapExactInSingle.poolKey.currency0, swapExactInSingle.amountIn]);
+      v4Planner.addAction(Actions.TAKE_ALL, [swapExactInSingle.poolKey.currency1, swapExactInSingle.amountOutMinimum]);
+
+      const v4CallData = v4Planner.finalize()
+
+      console.log("encodedActions", v4CallData)
+
+      // let commands = '0x10';
+      // callData = universalRouter.interface.encodeFunctionData("execute", [
+      //   commands,
+      //   [v4CallData],
+      //   deadline
+      // ]);
+
+      // const sweep = sweepEncode(tokenOut, fromAddress);
+      // console.warn("sweep", sweep)
+
+      routePlanner.addCommand(CommandType.V4_SWAP, [v4Planner.actions, v4Planner.params])
+      //routePlanner.addCommand(CommandType.SWEEP, [sweep])
+
+      console.warn("routePlanner", routePlanner)
+
+      const universalRouter2 = new ethers.Contract(
+        routerAddress, universalRouterAbi,
+        signer
+      )
+
+      // Only needed for native ETH as input currency swaps
+      const txOptions = {
+        value: amountIn,
+        //gasLimit: 3000000n
+      }
+      const tx = await universalRouter2.execute(
+        routePlanner.commands,
+        [v4CallData],
+        deadline,
+        txOptions
+      )
+      console.warn('Transaction sent! Hash:', tx.hash);
+
+      const receipt = await tx.wait()
+      console.warn('Swap completed! Transaction hash:', receipt.transactionHash)
+      return {
+        transactionHash: receipt.transactionHash,
+
+      };
+
     } else {
       throw new Error('Unknown Uniswap version');
     }
@@ -3480,12 +3627,14 @@ async function executeSwap(password, fromAddress, tokenIn, tokenOut, amountIn, a
     }
 
     const { nonce, gas_price: gasPrice } = txEssentials;
-    
+
     // Estimate gas for swap transaction
     const gas = await eth.estimate_gas(network, fromAddress, routerAddress, isNativeIn ? amountIn : 0, callData.startsWith('0x') ? callData : '0x' + callData);
     if (!gas) {
       throw new Error('Failed to estimate gas');
     }
+
+    //const gas = 30000000n; // Set a high gas limit for complex transactions
 
     // Calculate gas fee with multiplier
     const GAS_PRICE_MULTIPLIER = 1.2; // 20% buffer

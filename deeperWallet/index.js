@@ -17,6 +17,8 @@ const sui = require('./sui');
 const uniswap = require('./uniswap');
 exports.uniswap = uniswap;
 
+const { DEEPER_WALLET_BIN_PATH } = require('./utils');
+
 const { TokenInvalidInstructionTypeError } = require('@solana/spl-token');
 
 const PROXY_SERVER_ENDPOINT = 'https://proxy-wallet.deepernetworks.org';
@@ -24,7 +26,7 @@ const PROXY_SERVER_ENDPOINT = 'https://proxy-wallet.deepernetworks.org';
 const PROXY_REQUEST_TIMEOUT = 1000 * 20; // 20s
 const TOKEN_PRICE_TTL = 30; // 30s
 const EXCHANGE_RATE_TTL = 3600; // 1h
-const DEEPER_WALLET_BIN_PATH = 'D:\\git_resp\\hd-wallet\\target\\release\\hd-wallet.exe';
+
 const GAS_PRICE_MULTIPLIER = 1.1;
 
 const KEYSTORE_PATH = '/var/deeper/deeperWallet';
