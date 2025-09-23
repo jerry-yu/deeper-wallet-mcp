@@ -412,15 +412,18 @@ async function main2() {
 
     const [err11, result] = await to(uniswap.executeSwap(
         '', // password - empty string as per existing pattern
-        '0x90dF5A3EDE13Ee1D090573460e13B0BFD8aa9708', // fromAddress
+        '0x4AfEc9Dd056CaCa65462C38473CF2fe11F912D49', // fromAddress
+         
         '0x6727002ad781e0fB768ba11E404965ABA89aFfca',
-        "0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984",
-        
-        '100000000000',
+        "eth",
+       
+        '100000000000000000',
         0,
         'ETHEREUM-SEPOLIA',
         {
-            version: 'V2',
+            version: 'V4',
+            fee: 3000,
+            tickSpacing: 60
         }
 
     ));

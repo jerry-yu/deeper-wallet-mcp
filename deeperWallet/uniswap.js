@@ -3336,6 +3336,13 @@ function sweepEncode(tokenOut, toAddress) {
   );
 }
 
+function unwrapEthEncode(toAddress, amoutMin) {
+  return ethers.utils.defaultAbiCoder.encode(
+    ["address", "uint256"],
+    [toAddress, amoutMin]
+  );
+}
+
 async function permit2Encode(wallet, token, amount, spender) {
   try {
     const allowance = new AllowanceProvider(wallet.provider, PERMIT2_ADDRESS);
@@ -3348,16 +3355,15 @@ async function permit2Encode(wallet, token, amount, spender) {
     }
 
     const chainId = (await wallet.provider.getNetwork()).chainId;
-    const expiration = MaxUint48;
+    console.warn(`Using chain ID: ${chainId}`);
     const deadline = Math.floor(Date.now() / 1000) + 3600; // 1 hour from now
-    const nonce = allowData.nonce + 1;
 
     const permitSingle = {
       details: {
         token: token,
-        amount: amount.toString(),
-        expiration: expiration.toString(),
-        nonce: nonce,
+        amount: MaxAllowanceTransferAmount.toString(),
+        expiration: MaxUint48.toString(),
+        nonce: allowData.nonce,
       },
       spender: spender,
       sigDeadline: deadline,
@@ -3390,6 +3396,7 @@ async function permit2Encode(wallet, token, amount, spender) {
         signature
       ]
     );
+
     return permit2PermitInput;
   } catch (error) {
     console.error('Error signing Permit2 transfer:', error.message);
@@ -3451,14 +3458,13 @@ async function executeSwap(password, fromAddress, tokenIn, tokenOut, amountIn, a
       deadline = Math.floor(Date.now() / 1000) + 1200, // 20 minutes from now
       version = null,
       fee = FEE_TIERS.MEDIUM,
-      tickSpacing = 60
+      tickSpacing = 60, // default tick spacing for 0.3% fee tier
     } = options;
 
     // Validate deadline 
     if (!isValidDeadline(deadline)) {
       throw new Error('Invalid deadline');
     }
-
 
     const routerAddress = getNetworkConfig(network).universalRouter;
     const provider = new ethers.providers.JsonRpcProvider(getRpcUrl(network));
@@ -3497,66 +3503,109 @@ async function executeSwap(password, fromAddress, tokenIn, tokenOut, amountIn, a
 
     let callData;
     if (routeInfo.version === 'V2') {
-      const res = await handleTokenApproval('', fromAddress, tokenIn, PERMIT2_ADDRESS, amountIn, network);
-      console.warn("Approval result", res)
+      let commands = '0x';
+      if (!isNativeIn) {
+        const res = await handleTokenApproval('', fromAddress, tokenIn, PERMIT2_ADDRESS, amountIn, network);
+        console.warn("Approval result", res)
 
-      const permit = await permit2Encode(signer, tokenIn, amountIn, routerAddress);
-      console.warn("==================permit ===================", permit)
-      if (permit) {
-        let commands = CommandType.PERMIT2_PERMIT;
-        const deadline = Math.floor(Date.now() / 1000) + 3600
-        callData = universalRouter.interface.encodeFunctionData("execute", [
-          commands,
-          [permit],
-          deadline
-        ]);
+        const permit = await permit2Encode(signer, tokenIn, amountIn, routerAddress);
+        console.warn("==================permit ===================", permit)
+        if (permit) {
+
+          const deadline = Math.floor(Date.now() / 1000) + 3600
+          callData = universalRouter.interface.encodeFunctionData("execute", [
+            commands,
+            [permit],
+            deadline
+          ]);
+        }
+        commands += '0a'; // transferFrom
       }
+      commands += '01'; // swapV2
+
     } else if (routeInfo.version === 'V3') {
       // Use Universal Router for V3 swaps
-
       let commands = '0x';
-      if (isNativeIn) {
-        commands += '0b'; // unwrapWETH9
-      }
-      commands += '00'; // swapV3
-      commands += '04'; // sweep
+      let inputs = [];
+      let payerIsUser;
 
       const amountInBigInt = BigInt(amountIn);
 
-      // wrap input
-      const wrap = ethers.utils.defaultAbiCoder.encode(
-        ["address", "uint256"],
-        [ROUTER_AS_RECIPIENT, amountInBigInt]
-      );
-
+      if (isNativeIn) {
+        // wrap input
+        const wrap = ethers.utils.defaultAbiCoder.encode(
+          ["address", "uint256"],
+          [ROUTER_AS_RECIPIENT, amountInBigInt]
+        );
+        commands += '0b';
+        inputs.push(wrap);
+        payerIsUser = false
+      } else {
+        const res = await handleTokenApproval('', fromAddress, tokenIn, PERMIT2_ADDRESS, amountIn, network);
+        console.warn("Approval result", res)
+        payerIsUser = true;
+        const permit = await permit2Encode(signer, tokenIn, amountIn, routerAddress);
+        console.warn("==================permit ===================", permit)
+        if (permit) {
+          inputs.push(permit);
+          commands += '0a';
+        }
+      }
+      commands += '00'; // swapV3
 
       const path = v3PathEncode(tokenIn, tokenOut, routeInfo.fee);
-      const payerIsUser = false;
+      console.warn("v3 path--------", tokenIn, tokenOut, routeInfo.fee)
+
       const swapV3Input = v3Input(amountInBigInt, amountOutMin, path, ROUTER_AS_RECIPIENT, payerIsUser);
-
-      const sweep = sweepEncode(tokenOut, fromAddress);
-
+      inputs.push(swapV3Input);
+      if (isNativeOut) {
+        commands += '0c'; // unwrap
+        //TODO: handle amountOutMin for unwrap
+        const unwrap = unwrapEthEncode(fromAddress, 0x100);
+        inputs.push(unwrap);
+      } else {
+        const sweep = sweepEncode(tokenOut, fromAddress);
+        commands += '04'; // sweep
+        inputs.push(sweep);
+      }
       callData = universalRouter.interface.encodeFunctionData("execute", [
         commands,
-        [wrap, swapV3Input, sweep],
+        inputs,
         deadline
       ]);
-
-
     } else if (routeInfo.version === 'V4') {
 
-      if (isNativeIn) {
-        tokenIn = ZERO_ADDRESS;
+      const tokenInNorm = isNativeIn ? ZERO_ADDRESS : tokenIn.toLocaleLowerCase();
+      const tokenOutNorm = isNativeOut ? ZERO_ADDRESS : tokenOut.toLocaleLowerCase();
+
+      const currency0 = tokenInNorm < tokenOutNorm ? tokenInNorm : tokenOutNorm;
+      const currency1 = tokenInNorm < tokenOutNorm ? tokenOutNorm : tokenInNorm;
+
+      const zeroForOne = tokenInNorm === currency0;
+      let commands = '0x';
+      let inputs = [];
+
+      if (!isNativeIn) {
+        const res = await handleTokenApproval('', fromAddress, tokenIn, PERMIT2_ADDRESS, amountIn, network);
+        console.warn("Approval result", res)
+        payerIsUser = true;
+        const permit = await permit2Encode(signer, tokenIn, amountIn, routerAddress);
+        console.warn("==================permit ===================", permit)
+        if (permit) {
+          inputs.push(permit);
+          commands += '0a';
+        }
       }
+
       const swapExactInSingle = {
         poolKey: {
-          currency0: tokenIn,
-          currency1: tokenOut,
+          currency0: currency0,
+          currency1: currency1,
           fee: fee,
           tickSpacing: tickSpacing,
           hooks: "0x0000000000000000000000000000000000000000",
         },
-        zeroForOne: true, // The direction of swap is ETH to USDC. Change it to 'false' for the reverse direction
+        zeroForOne: zeroForOne, // The direction of swap is ETH to USDC. Change it to 'false' for the reverse direction
         amountIn: amountIn, // Amount of input token to swap
         amountOutMinimum: amountOutMin, // Minimum amount of output token to receive
         hookData: '0x'
@@ -3565,32 +3614,19 @@ async function executeSwap(password, fromAddress, tokenIn, tokenOut, amountIn, a
       console.warn("swapExactInSingle", swapExactInSingle)
 
       const v4Planner = new V4Planner()
-      const routePlanner = new RoutePlanner()
+      //const routePlanner = new RoutePlanner()
 
       // Set deadline (1 hour from now)
       const deadline = Math.floor(Date.now() / 1000) + 3600
       v4Planner.addAction(Actions.SWAP_EXACT_IN_SINGLE, [swapExactInSingle]);
-      v4Planner.addAction(Actions.SETTLE_ALL, [swapExactInSingle.poolKey.currency0, swapExactInSingle.amountIn]);
-      v4Planner.addAction(Actions.TAKE_ALL, [swapExactInSingle.poolKey.currency1, swapExactInSingle.amountOutMinimum]);
+      v4Planner.addAction(Actions.SETTLE_ALL, [tokenInNorm, swapExactInSingle.amountIn]);
+      v4Planner.addAction(Actions.TAKE_ALL, [tokenOutNorm, swapExactInSingle.amountOutMinimum]);
 
       const v4CallData = v4Planner.finalize()
+      commands += '10'; // swapV4
+      inputs.push(v4CallData);
 
       console.log("encodedActions", v4CallData)
-
-      // let commands = '0x10';
-      // callData = universalRouter.interface.encodeFunctionData("execute", [
-      //   commands,
-      //   [v4CallData],
-      //   deadline
-      // ]);
-
-      // const sweep = sweepEncode(tokenOut, fromAddress);
-      // console.warn("sweep", sweep)
-
-      routePlanner.addCommand(CommandType.V4_SWAP, [v4Planner.actions, v4Planner.params])
-      //routePlanner.addCommand(CommandType.SWEEP, [sweep])
-
-      console.warn("routePlanner", routePlanner)
 
       const universalRouter2 = new ethers.Contract(
         routerAddress, universalRouterAbi,
@@ -3599,12 +3635,14 @@ async function executeSwap(password, fromAddress, tokenIn, tokenOut, amountIn, a
 
       // Only needed for native ETH as input currency swaps
       const txOptions = {
-        value: amountIn,
-        //gasLimit: 3000000n
+        value: isNativeIn ? amountIn : 0,
+        //gasLimit: 300000n
       }
+
+      console.warn("*******************", txOptions);
       const tx = await universalRouter2.execute(
-        routePlanner.commands,
-        [v4CallData],
+        commands,
+        inputs,
         deadline,
         txOptions
       )
