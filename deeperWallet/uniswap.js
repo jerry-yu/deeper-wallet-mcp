@@ -544,7 +544,8 @@ const COMMON_TOKENS = {
     usdt: '0xdAC17F958D2ee523a2206206994597C13D831ec7',
     dai: '0x6B175474E89094C44Da98b954EedeAC495271d0F',
     wbtc: '0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599',
-    eth: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2' // Placeholder for ETH
+    eth: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2',
+    uni: '0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984',
 
   },
   'ETHEREUM-SEPOLIA': {
@@ -3539,7 +3540,6 @@ async function executeSwap(password, fromAddress, tokenIn, tokenOut, amountIn, a
         console.warn("Approval result", res)
         payerIsUser = true;
         const permit = await permit2Encode(signer, tokenIn, amountIn, routerAddress);
-        console.warn("==================permit ===================", permit)
         if (permit) {
           inputs.push(permit);
           commands += '0a';
@@ -3587,7 +3587,6 @@ async function executeSwap(password, fromAddress, tokenIn, tokenOut, amountIn, a
         console.warn("Approval result", res)
         payerIsUser = true;
         const permit = await permit2Encode(signer, tokenIn, amountIn, routerAddress);
-        console.warn("==================permit ===================", permit)
         if (permit) {
           inputs.push(permit);
           commands += '0a';
@@ -3596,8 +3595,6 @@ async function executeSwap(password, fromAddress, tokenIn, tokenOut, amountIn, a
       commands += '00'; // swapV3
 
       const path = v3PathEncode(tokenIn, tokenOut, routeInfo.fee);
-      console.warn("v3 path--------", tokenIn, tokenOut, routeInfo.fee)
-
       const swapV3Input = v3Input(amountInBigInt, amountOutMin, path, ROUTER_AS_RECIPIENT, payerIsUser);
       inputs.push(swapV3Input);
       if (isNativeOut) {
@@ -3632,7 +3629,6 @@ async function executeSwap(password, fromAddress, tokenIn, tokenOut, amountIn, a
         console.warn("Approval result", res)
         payerIsUser = true;
         const permit = await permit2Encode(signer, tokenIn, amountIn, routerAddress);
-        console.warn("==================permit ===================", permit)
         if (permit) {
           inputs.push(permit);
           commands += '0a';
@@ -3678,7 +3674,6 @@ async function executeSwap(password, fromAddress, tokenIn, tokenOut, amountIn, a
         //gasLimit: 300000n
       }
 
-      console.warn("*******************", txOptions);
       const tx = await universalRouter2.execute(
         commands,
         inputs,

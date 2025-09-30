@@ -5,7 +5,7 @@ const { z } = require('zod');
 const { serverDescription } = require('./instructions');
 const { loadAllDb } = require('./deeperWallet/sqlite3.js');
 const to = require('await-to-js').default;
-const { deriveAccountList, getBalance, getContractBalance, getContractMeta, transferToken, transferContractToken, addAccount, importHdStore, } = require('./deeperWallet');
+const { deriveAccountList, getBalance, getContractBalance, getContractMeta, transferToken, transferContractToken, addAccount, importHdStore, getV2PoolInfo, getV3PoolInfo, getV4PoolInfo, getUniswapTokenInfo, getUniswapTopPools, searchUniswapPoolsBySymbol } = require('./deeperWallet');
 const fs = require('fs');
 const path = require('path');
 const dotenv = require('dotenv');
@@ -385,6 +385,194 @@ async function main() {
                     {
                         type: 'text',
                         text: `Account list: ${JSON.stringify(accountList)}`,
+                    }
+                ],
+            };
+        }
+    );
+
+    // Uniswap Subgraph Query Tools
+    server.tool(
+        'getUniswapV2PoolInfo',
+        'Query Uniswap V2 pool information for two tokens',
+        {
+            token0Address: z.string().describe('Address of the first token'),
+            token1Address: z.string().describe('Address of the second token'),
+            network: z.string().describe('Network name (mainnet, polygon, arbitrum, optimism)').optional().default('mainnet'),
+        },
+        async ({ token0Address, token1Address, network }) => {
+            const [err, poolInfo] = await to(getV2PoolInfo(token0Address, token1Address, network));
+            if (err) {
+                return {
+                    content: [
+                        {
+                            type: 'text',
+                            text: `Failed to get Uniswap V2 pool info: ${err.message || err}`,
+                        }
+                    ],
+                };
+            }
+            return {
+                content: [
+                    {
+                        type: 'text',
+                        text: `Uniswap V2 pool info for ${token0Address}/${token1Address} on ${network}: ${JSON.stringify(poolInfo, null, 2)}`,
+                    }
+                ],
+            };
+        }
+    );
+
+    server.tool(
+        'getUniswapV3PoolInfo',
+        'Query Uniswap V3 pool information for two tokens',
+        {
+            token0Address: z.string().describe('Address of the first token'),
+            token1Address: z.string().describe('Address of the second token'),
+            network: z.string().describe('Network name (mainnet, polygon, arbitrum, optimism, base, bnb)').optional().default('mainnet'),
+        },
+        async ({ token0Address, token1Address, network }) => {
+            const [err, poolInfo] = await to(getV3PoolInfo(token0Address, token1Address, network));
+            if (err) {
+                return {
+                    content: [
+                        {
+                            type: 'text',
+                            text: `Failed to get Uniswap V3 pool info: ${err.message || err}`,
+                        }
+                    ],
+                };
+            }
+            return {
+                content: [
+                    {
+                        type: 'text',
+                        text: `Uniswap V3 pool info for ${token0Address}/${token1Address} on ${network}: ${JSON.stringify(poolInfo, null, 2)}`,
+                    }
+                ],
+            };
+        }
+    );
+
+    server.tool(
+        'getUniswapV4PoolInfo',
+        'Query Uniswap V4 pool information for two tokens',
+        {
+            token0Address: z.string().describe('Address of the first token'),
+            token1Address: z.string().describe('Address of the second token'),
+            network: z.string().describe('Network name (currently only mainnet supported)').optional().default('mainnet'),
+        },
+        async ({ token0Address, token1Address, network }) => {
+            const [err, poolInfo] = await to(getV4PoolInfo(token0Address, token1Address, network));
+            if (err) {
+                return {
+                    content: [
+                        {
+                            type: 'text',
+                            text: `Failed to get Uniswap V4 pool info: ${err.message || err}`,
+                        }
+                    ],
+                };
+            }
+            return {
+                content: [
+                    {
+                        type: 'text',
+                        text: `Uniswap V4 pool info for ${token0Address}/${token1Address} on ${network}: ${JSON.stringify(poolInfo, null, 2)}`,
+                    }
+                ],
+            };
+        }
+    );
+
+    server.tool(
+        'getUniswapTokenInfo',
+        'Get detailed information about a specific token from Uniswap subgraph',
+        {
+            tokenAddress: z.string().describe('Address of the token'),
+            version: z.string().describe('Uniswap version (v2, v3, v4)').optional().default('v3'),
+            network: z.string().describe('Network name').optional().default('mainnet'),
+        },
+        async ({ tokenAddress, version, network }) => {
+            const [err, tokenInfo] = await to(getUniswapTokenInfo(tokenAddress, version, network));
+            if (err) {
+                return {
+                    content: [
+                        {
+                            type: 'text',
+                            text: `Failed to get Uniswap token info: ${err.message || err}`,
+                        }
+                    ],
+                };
+            }
+            return {
+                content: [
+                    {
+                        type: 'text',
+                        text: `Uniswap token info for ${tokenAddress} on ${network} (${version}): ${JSON.stringify(tokenInfo, null, 2)}`,
+                    }
+                ],
+            };
+        }
+    );
+
+    server.tool(
+        'getUniswapTopPools',
+        'Get top pools from Uniswap by TVL or reserves',
+        {
+            version: z.string().describe('Uniswap version (v2, v3, v4)').optional().default('v3'),
+            network: z.string().describe('Network name').optional().default('mainnet'),
+            limit: z.number().describe('Number of pools to return').optional().default(10),
+        },
+        async ({ version, network, limit }) => {
+            const [err, topPools] = await to(getUniswapTopPools(version, network, limit));
+            if (err) {
+                return {
+                    content: [
+                        {
+                            type: 'text',
+                            text: `Failed to get Uniswap top pools: ${err.message || err}`,
+                        }
+                    ],
+                };
+            }
+            return {
+                content: [
+                    {
+                        type: 'text',
+                        text: `Top ${limit} Uniswap ${version} pools on ${network}: ${JSON.stringify(topPools, null, 2)}`,
+                    }
+                ],
+            };
+        }
+    );
+
+    server.tool(
+        'searchUniswapPoolsBySymbol',
+        'Search Uniswap pools by token symbol',
+        {
+            symbol: z.string().describe('Token symbol to search for'),
+            version: z.string().describe('Uniswap version (v2, v3, v4)').optional().default('v3'),
+            network: z.string().describe('Network name').optional().default('mainnet'),
+            limit: z.number().describe('Number of pools to return').optional().default(10),
+        },
+        async ({ symbol, version, network, limit }) => {
+            const [err, pools] = await to(searchUniswapPoolsBySymbol(symbol, version, network, limit));
+            if (err) {
+                return {
+                    content: [
+                        {
+                            type: 'text',
+                            text: `Failed to search Uniswap pools: ${err.message || err}`,
+                        }
+                    ],
+                };
+            }
+            return {
+                content: [
+                    {
+                        type: 'text',
+                        text: `Uniswap ${version} pools containing "${symbol}" on ${network}: ${JSON.stringify(pools, null, 2)}`,
                     }
                 ],
             };

@@ -17,6 +17,17 @@ const sui = require('./sui');
 const uniswap = require('./uniswap');
 exports.uniswap = uniswap;
 
+// Import Uniswap subgraph module
+const {
+  getV2PoolInfo,
+  getV3PoolInfo,
+  getV4PoolInfo,
+  getTokenInfo,
+  getTopPools,
+  searchPoolsBySymbol,
+  SUBGRAPH_ENDPOINTS
+} = require('./uniswap-subgraph.js');
+
 const { DEEPER_WALLET_BIN_PATH } = require('./utils');
 
 const { TokenInvalidInstructionTypeError } = require('@solana/spl-token');
@@ -1417,4 +1428,13 @@ exports.deriveAccountList = async () => {
 
   return extractAccountList(stdout);
 };
+
+// Export Uniswap Subgraph functions
+exports.getV2PoolInfo = getV2PoolInfo;
+exports.getV3PoolInfo = getV3PoolInfo;
+exports.getV4PoolInfo = getV4PoolInfo;
+exports.getUniswapTokenInfo = getTokenInfo;
+exports.getUniswapTopPools = getTopPools;
+exports.searchUniswapPoolsBySymbol = searchPoolsBySymbol;
+exports.UNISWAP_SUBGRAPH_ENDPOINTS = SUBGRAPH_ENDPOINTS;
 
