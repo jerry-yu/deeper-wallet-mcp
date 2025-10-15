@@ -56,9 +56,9 @@ const rpcUrls = {
     'https://bsc-dataseed2.defibit.io',
   ],
   'BNBSMARTCHAIN-TESTNET': [
-    'https://bsc-testnet.public.blastapi.io',
-    'https://data-seed-prebsc-2-s2.bnbchain.org:8545',
-    'https://data-seed-prebsc-1-s1.bnbchain.org:8545',
+    'https://bsc-testnet-dataseed.bnbchain.org',
+    'https://bsc-testnet.bnbchain.org',
+    'https://bsc-prebsc-dataseed.bnbchain.org'
   ],
 };
 
@@ -124,7 +124,7 @@ async function estimate_gas(network, fromAddress, toAddress, amount, data) {
   if (!res) {
     return null;
   }
-   console.warn(`estimate_gas body: ${JSON.stringify(res)}`);
+  console.warn(`estimate_gas body: ${JSON.stringify(res)}`);
   const gas = convertHexToDecimalString(res);
   return parseInt(gas);
 }
@@ -181,12 +181,13 @@ async function getNonce(network, address) {
 }
 
 async function get_tx_essential_elem(network, address) {
+  console.warn(`get_tx_essential_elem: ${network} ${address}`);
   const nonce = await getNonce(network, address);
-  if (!nonce) {
+  if (nonce === null) {
     return null;
   }
   const gas_price = await getEthGasPrice(network);
-  if (!gas_price) {
+  if (gas_price === null) {
     return null;
   }
   return { nonce, gas_price };

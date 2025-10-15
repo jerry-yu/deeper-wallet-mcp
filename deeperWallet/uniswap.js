@@ -3,7 +3,7 @@ const axios = require('axios');
 const to = require('await-to-js').default;
 const Decimal = require('decimal.js');
 const { ethers } = require('ethers');
-const { Actions, V4Planner, SwapExactInSingle } = require('@uniswap/v4-sdk');
+const { Actions, V4Planner, SwapExactInSingle, toAddress } = require('@uniswap/v4-sdk');
 const eth = require('./eth');
 const commonUtil = require('./utils');
 const {
@@ -534,6 +534,10 @@ const NETWORK_CONFIG = {
     v3Router: '0x3bFA4769FB09eefC5a80d6E87c3B9C650f7Ae48E',
     v3Factory: '0x0227628f3F023bb0B980b67D528571c95c6DaC1c',
     weth: '0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14'
+  },
+  'BNBSMARTCHAIN-TESTNET': {
+    universalRouter: '0x87FD5305E6a40F378da124864B2D479c2028BD86',
+    wbnb:'0xae13d989daC2f0dEbFf460aC112a837C89BAa7cd',
   }
 };
 
@@ -553,6 +557,13 @@ const COMMON_TOKENS = {
     usdt: '0x7169D38820dfd117C3FA1f22a697dBA58d90BA06',
     dai: '0x3e622317f8C93f7328350cF0B56d9eD4C620C5d6',
     eth: '0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14' // Placeholder for ETH
+  },
+  'BNBSMARTCHAIN-TESTNET': {
+    cake3: '0xFa60D973F7642B748046464e165A65B7323b0DEE',
+    busd: '0xeD24FC36d5Ee211Ea25A80239Fb8C4Cfd80f12Ee',
+    wbnb: '0xae13d989dac2f0debff460ac112a837c89baa7cd',
+    usdt: '0x337610d27c682E347C9cD60BD4b3b107C9d34dDd',
+    bnb: '0xae13d989dac2f0debff460ac112a837c89baa7cd' // Placeholder for BNB
   }
 };
 
@@ -3442,13 +3453,14 @@ function encodeV2SwapExactIn(recipient, amountIn, amountOutMin, tokenIn, tokenOu
 async function executeSwap(password, fromAddress, tokenIn, tokenOut, amountIn, amountOutMin, network, options = {}) {
   try {
     // Import required modules
-
+    network = network.toUpperCase();
     tokenIn = tokenIn.toLowerCase();
     tokenOut = tokenOut.toLowerCase();
     let isNativeIn = false;
     let isNativeOut = false;
-    if (tokenIn === 'eth') isNativeIn = true;
-    if (tokenOut === 'eth') isNativeOut = true;
+    
+    if (tokenIn === 'eth' || tokenIn ==='bnb') isNativeIn = true;
+    if (tokenOut === 'eth' || tokenOut === 'bnb') isNativeOut = true;
 
     tokenIn = mapAddress(tokenIn, network);
     tokenOut = mapAddress(tokenOut, network);
@@ -3596,6 +3608,7 @@ async function executeSwap(password, fromAddress, tokenIn, tokenOut, amountIn, a
 
       const path = v3PathEncode(tokenIn, tokenOut, routeInfo.fee);
       const swapV3Input = v3Input(amountInBigInt, amountOutMin, path, ROUTER_AS_RECIPIENT, payerIsUser);
+
       inputs.push(swapV3Input);
       if (isNativeOut) {
         commands += '0c'; // unwrap

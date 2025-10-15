@@ -395,8 +395,7 @@ async function searchPoolsBySymbol(symbol, version = 'v3', network = 'mainnet', 
             symbol
             name
           }
-          ${version === 'v2' ? '' : 'feeTier'}
-          ${version === 'v4' ? 'fee' : ''}
+          feeTier
           totalValueLockedUSD
           volumeUSD
         }

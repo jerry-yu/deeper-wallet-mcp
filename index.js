@@ -601,16 +601,14 @@ async function main2() {
     const [err11, result] = await to(uniswap.executeSwap(
         '', // password - empty string as per existing pattern
         '0x4AfEc9Dd056CaCa65462C38473CF2fe11F912D49', // fromAddress
-          "eth",
-        '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238',
-       
-       
-        '100000000000000',
+          "bnb",
+        '0x8d008B313C1d6C7fE2982F62d32Da7507cF43551',
+        '1000000000000000',
         0,
-        'ETHEREUM-SEPOLIA',
+        'BNBSMARTCHAIN-TESTNET',
         {
-            version: 'V2',
-            fee: 3000,
+            version: 'V3',
+            fee: 100,
             tickSpacing: 60
         }
 
