@@ -564,7 +564,16 @@ const COMMON_TOKENS = {
     wbnb: '0xae13d989dac2f0debff460ac112a837c89baa7cd',
     usdt: '0x337610d27c682E347C9cD60BD4b3b107C9d34dDd',
     bnb: '0xae13d989dac2f0debff460ac112a837c89baa7cd' // Placeholder for BNB
-  }
+  },
+
+   'BNBSMARTCHAIN': {
+    usdt: '0x55d398326f99059fF775485246999027B3197955',
+    usdc: '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d',
+    busd: '0xe9e7cea3dedca5984780bafc599bd69add087d56',
+    wbnb: '0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c',
+    cake : '0x0E09FaBB73Bd3Ade0a17ECC321fD13a19e81cE82',
+   }
+  
 };
 
 // RPC URLs for different networks (copied from eth.js)

@@ -9,21 +9,14 @@ const axios = require('axios');
 const SUBGRAPH_ENDPOINTS = {
   v2: {
     mainnet: 'https://gateway.thegraph.com/api/subgraphs/id/A3Np3RQbaBA6oKJgiwDJeo5T3zrYfGHPWFYayMwtNDum',
-    polygon: 'https://api.thegraph.com/subgraphs/name/ianlapham/uniswap-v2-polygon',
-    arbitrum: 'https://api.thegraph.com/subgraphs/name/ianlapham/arbitrum-minimal',
-    optimism: 'https://api.thegraph.com/subgraphs/name/ianlapham/optimism-post-regenesis'
   },
   v3: {
     mainnet: 'https://gateway.thegraph.com/api/subgraphs/id/5zvR82QoaXYFyDEKLZ9t6v9adgnptxYpKpSbxtgVENFV',
-    polygon: 'https://api.thegraph.com/subgraphs/name/ianlapham/uniswap-v3-polygon',
-    arbitrum: 'https://api.thegraph.com/subgraphs/name/ianlapham/uniswap-arbitrum-one',
-    optimism: 'https://api.thegraph.com/subgraphs/name/ianlapham/optimism-post-regenesis',
-    base: 'https://api.studio.thegraph.com/query/48211/uniswap-v3-base/version/latest',
-    bnb: 'https://api.thegraph.com/subgraphs/name/ianlapham/uniswap-v3-bsc'
+    bsc: 'https://gateway.thegraph.com/api/subgraphs/id/Hv1GncLY5docZoGtXjo4kwbTvxm3MAhVZqBZE4sUT9eZ'
   },
   v4: {
     mainnet: 'https://gateway.thegraph.com/api/subgraphs/id/DiYPVdygkfjDWhbxGSqAQxwBKmfKnkWQojqeM2rkLb3G'
-  }
+  },
 };
 
 /**
